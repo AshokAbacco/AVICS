@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useForm } from 'react-hook-form'
 import { Download, Plus, Upload } from 'lucide-react'
 import PageHeader from './PageHeader.jsx'
@@ -18,12 +18,18 @@ import { exportToCSV } from '../utils/table.js'
  * across every module: header, breadcrumb, stat cards, search, filter,
  * table, pagination, add/edit/view/delete actions, export & import, and a
  * professional empty state (handled inside DataTable).
+ *
+ * API integration is OPTIONAL. Pass onFetch/onCreate/onUpdate/onDelete to
+ * hook this page up to a real backend. If omitted, the page behaves exactly
+ * as before -- local-only state seeded from `initialData`. This means every
+ * other module (Cases, Vehicles, Hospitals, etc.) that hasn't been wired to
+ * a backend yet keeps working unchanged.
  */
 export default function ManagementPage({
   title,
   subtitle,
   breadcrumbLabel,
-  initialData,
+  initialData = [],
   columns,
   formFields,
   searchKeys,
@@ -32,8 +38,17 @@ export default function ManagementPage({
   filterLabel = 'Status',
   stats = [],
   idPrefix = 'REC',
+  // Optional async API handlers
+  onFetch,   // async () => items[]
+  onCreate,  // async (data) => createdItem
+  onUpdate,  // async (id, data) => updatedItem
+  onDelete,  // async (id) => void
 }) {
   const [items, setItems] = useState(initialData)
+  const [loading, setLoading] = useState(!!onFetch)
+  const [submitting, setSubmitting] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
+
   const { search, setSearch, filterValue, setFilterValue, page, setPage, totalPages, paginated } = useTableData(
     items,
     { searchKeys, filterField, pageSize: 6 }
@@ -44,6 +59,25 @@ export default function ManagementPage({
   const [selectedRow, setSelectedRow] = useState(null)
   const [editingRow, setEditingRow] = useState(null)
   const { register, handleSubmit, reset } = useForm()
+
+  const loadData = useCallback(async () => {
+    if (!onFetch) return
+    setLoading(true)
+    setErrorMsg('')
+    try {
+      const data = await onFetch()
+      setItems(data || [])
+    } catch (err) {
+      setErrorMsg(err.message || 'Failed to load records.')
+    } finally {
+      setLoading(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
 
   const openAddModal = () => {
     setEditingRow(null)
@@ -62,20 +96,49 @@ export default function ManagementPage({
     viewModal.open()
   }
 
-  const handleDelete = (row) => {
-    if (window.confirm(`Delete record ${row.id}? This action cannot be undone.`)) {
-      setItems((prev) => prev.filter((item) => item.id !== row.id))
+  const handleDelete = async (row) => {
+    if (!window.confirm(`Delete record ${row.id}? This action cannot be undone.`)) return
+
+    if (onDelete) {
+      try {
+        await onDelete(row.id)
+        setItems((prev) => prev.filter((item) => item.id !== row.id))
+      } catch (err) {
+        window.alert(err.message || 'Failed to delete record.')
+      }
+      return
     }
+
+    setItems((prev) => prev.filter((item) => item.id !== row.id))
   }
 
-  const onSubmit = (data) => {
-    if (editingRow) {
-      setItems((prev) => prev.map((item) => (item.id === editingRow.id ? { ...item, ...data } : item)))
-    } else {
-      const newId = `${idPrefix}-${Math.floor(1000 + Math.random() * 9000)}`
-      setItems((prev) => [{ ...data, id: newId }, ...prev])
+  const onSubmit = async (data) => {
+    setSubmitting(true)
+    try {
+      if (editingRow) {
+        if (onUpdate) {
+          const updated = await onUpdate(editingRow.id, data)
+          setItems((prev) =>
+            prev.map((item) => (item.id === editingRow.id ? { ...item, ...(updated || data) } : item))
+          )
+        } else {
+          setItems((prev) => prev.map((item) => (item.id === editingRow.id ? { ...item, ...data } : item)))
+        }
+      } else {
+        if (onCreate) {
+          const created = await onCreate(data)
+          setItems((prev) => [created || { ...data, id: `${idPrefix}-${Date.now()}` }, ...prev])
+        } else {
+          const newId = `${idPrefix}-${Math.floor(1000 + Math.random() * 9000)}`
+          setItems((prev) => [{ ...data, id: newId }, ...prev])
+        }
+      }
+      addModal.close()
+    } catch (err) {
+      window.alert(err.message || 'Failed to save record.')
+    } finally {
+      setSubmitting(false)
     }
-    addModal.close()
   }
 
   const handleImportClick = () => {
@@ -107,6 +170,12 @@ export default function ManagementPage({
         }
       />
 
+      {errorMsg && (
+        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-danger">
+          {errorMsg}
+        </div>
+      )}
+
       {stats.length > 0 && (
         <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {stats.map((stat, idx) => (
@@ -131,6 +200,7 @@ export default function ManagementPage({
         onView={openViewModal}
         onEdit={openEditModal}
         onDelete={handleDelete}
+        loading={loading}
         emptyTitle={`No ${breadcrumbLabel.toLowerCase()} found`}
         emptyDescription="Try a different search term or filter, or add a new record to get started."
       />
@@ -141,8 +211,12 @@ export default function ManagementPage({
         title={editingRow ? `Edit ${breadcrumbLabel.replace(/s$/, '')}` : `Add ${breadcrumbLabel.replace(/s$/, '')}`}
         footer={
           <>
-            <Button variant="outline" onClick={addModal.close}>Cancel</Button>
-            <Button onClick={handleSubmit(onSubmit)}>{editingRow ? 'Save Changes' : 'Add Record'}</Button>
+            <Button variant="outline" onClick={addModal.close} disabled={submitting}>
+              Cancel
+            </Button>
+            <Button onClick={handleSubmit(onSubmit)} disabled={submitting}>
+              {submitting ? 'Saving...' : editingRow ? 'Save Changes' : 'Add Record'}
+            </Button>
           </>
         }
       >
@@ -161,7 +235,18 @@ export default function ManagementPage({
                   </select>
                 </label>
               ) : (
-                <Input label={field.label} type={field.type || 'text'} {...register(field.name)} />
+                <Input
+                  label={field.label}
+                  type={field.type || 'text'}
+                  {...register(
+                    field.name,
+                    field.type === 'number'
+                      ? {
+                          setValueAs: (v) => (v === '' || v === null || v === undefined ? '' : Number(v)),
+                        }
+                      : {}
+                  )}
+                />
               )}
             </div>
           ))}
@@ -179,7 +264,7 @@ export default function ManagementPage({
             {Object.entries(selectedRow).map(([key, value]) => (
               <div key={key}>
                 <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">{key}</dt>
-                <dd className="mt-0.5 text-sm font-medium text-slate-700">{String(value)}</dd>
+                <dd className="mt-0.5 text-sm font-medium text-slate-700">{String(value ?? '')}</dd>
               </div>
             ))}
           </dl>

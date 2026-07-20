@@ -21,3 +21,22 @@ model User {
 
   @@map("users")
 }
+
+model Victim {
+  id                String   @id @default(cuid())
+  name              String
+  guardianRelation  String?
+  guardianName      String?
+  age               Int
+  gender            String
+  contact           String
+  aadhaarNumber     String?
+  address           String?
+  caseId            String?
+  injuryType        String
+  status            String   @default("Active")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("victims")
+}

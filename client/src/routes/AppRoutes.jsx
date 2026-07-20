@@ -28,12 +28,24 @@ import Unauthorized from '../pages/Errors/Unauthorized.jsx'
 export default function AppRoutes() {
   return (
     <Routes>
+      {/* Default route */}
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
+      {/* =======================================================
+          LOGIN ROUTES (TEMPORARILY DISABLED)
+          Uncomment these when authentication is implemented.
+      ======================================================== */}
+
+      {/*
       <Route element={<AuthLayout />}>
         <Route path="/login" element={<Login />} />
       </Route>
+      */}
 
+      {/* Temporary redirect so /login never shows 404 */}
+      <Route path="/login" element={<Navigate to="/dashboard" replace />} />
+
+      {/* Protected/Admin Pages */}
       <Route element={<AdminLayout />}>
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/cases" element={<CaseManagement />} />
