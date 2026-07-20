@@ -5,9 +5,9 @@ Third Party Motor Accident Insurance Claim Software — enterprise claim managem
 ## Structure
 
 ```
-project/
-  frontend/     React (Vite) + Tailwind CSS UI — fully functional with dummy data
-  backend/      Express.js server scaffold (no database/APIs, per project scope)
+AVICS/
+  client/     React (Vite) + Tailwind CSS UI — fully functional with dummy data
+  server/      Express.js server scaffold (no database/APIs, per project scope)
 ```
 
 ## Quick Start
@@ -15,7 +15,7 @@ project/
 ### Frontend
 
 ```bash
-cd frontend
+cd client
 npm install
 npm run dev
 ```
@@ -25,7 +25,7 @@ Runs at `http://localhost:5173`. Log in with any email/password.
 ### Backend
 
 ```bash
-cd backend
+cd server
 npm install
 npm run dev
 ```

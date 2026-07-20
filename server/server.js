@@ -1,20 +1,19 @@
-const express = require('express')
-const cors = require('cors')
-const config = require('./config/config')
-const routes = require('./routes')
-const requestLogger = require('./middleware/requestLogger')
-const { errorHandler, notFound } = require('./middleware/errorHandler')
-const logger = require('./utils/logger')
+// server.js
+
+import express from 'express'
+import cors from 'cors'
+import config from './config/config.js'
+import prisma from './config/prismaClient.js'
+import routes from './src/index.js'
+ 
 
 const app = express()
 
-// Core middleware
 app.use(cors({ origin: config.corsOrigin }))
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
-app.use(requestLogger)
+// app.use(requestLogger)
 
-// Root route
 app.get('/', (req, res) => {
   res.status(200).json({
     success: true,
@@ -23,15 +22,12 @@ app.get('/', (req, res) => {
   })
 })
 
-// API routes
 app.use('/api', routes)
 
-// 404 + error handling
-app.use(notFound)
-app.use(errorHandler)
+ app.use("/api", routes);
 
 app.listen(config.port, () => {
-  logger.info(`AVICS backend server running on port ${config.port} [${config.nodeEnv}]`)
-})
-
-module.exports = app
+  console.log(`🚀 Server running on http://localhost:${config.port}`);
+});
+ 
+export default app
