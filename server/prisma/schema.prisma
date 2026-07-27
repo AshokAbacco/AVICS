@@ -7,36 +7,868 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ======================================================
+// ENUMS
+// ======================================================
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum CaseStatus {
+  DRAFT
+  OPEN
+  UNDER_INVESTIGATION
+  DOCUMENT_PENDING
+  CLAIM_PROCESSING
+  APPROVED
+  REJECTED
+  CLOSED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum VehicleType {
+  BIKE
+  CAR
+  AUTO
+  BUS
+  LORRY
+  VAN
+  TRACTOR
+  OTHER
+}
+
+enum VictimStatus {
+  ACTIVE
+  INACTIVE
+  DECEASED
+}
+
+enum DocumentVerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum MaritalStatus {
+  SINGLE
+  MARRIED
+  DIVORCED
+  WIDOWED
+  SEPARATED
+}
+
+enum NotificationType {
+  INFO
+  WARNING
+  ALERT
+  SUCCESS
+}
+
+enum CompensationStatus {
+  PENDING
+  PROCESSING
+  APPROVED
+  REJECTED
+  PAID
+}
+
+enum AccidentType {
+  COLLISION
+  SELF_ACCIDENT
+  HIT_AND_RUN
+  PEDESTRIAN
+  VEHICLE_FIRE
+  OVERTURN
+  OTHER
+}
+
+enum WeatherCondition {
+  CLEAR
+  RAIN
+  FOG
+  STORM
+  CLOUDY
+  OTHER
+}
+
+enum CaseSource {
+  WALK_IN
+  POLICE
+  HOSPITAL
+  INSURANCE
+  ADVOCATE
+  ONLINE
+  OTHER
+}
+
+// ======================================================
+// USER
+// ======================================================
+
 model User {
-  id         String    @id @default(cuid())
+  id         String     @id @default(cuid())
   name       String
-  email      String    @unique
+  email      String     @unique
   password   String
-  role       String    @default("Data Entry Operator")
+
+  role       String     @default("Data Entry Operator")
   department String?
-  status     String    @default("Active") // Active | Inactive
+
+  status     UserStatus @default(ACTIVE)
+
   lastLogin  DateTime?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  // Relations
+
+  casesAssigned     Case[]           @relation("AssignedOfficer")
+  casesCreated      Case[]           @relation("CreatedBy")
+
+  documentsVerified Document[]       @relation("VerifiedBy")
+
+  fileUploads       FileUpload[]
+
+  caseNotes         CaseNote[]
+
+  timelinesCreated  Timeline[]       @relation("TimelineCreatedBy")
+
+  activityLogs      ActivityLog[]
+
+  assignmentsTo     CaseAssignment[] @relation("AssignedTo")
+  assignmentsBy     CaseAssignment[] @relation("AssignedBy")
+
+  notifications     Notification[]
 
   @@map("users")
 }
 
+// ======================================================
+// CASE
+// ======================================================
+
+model Case {
+
+  id                String      @id @default(cuid())
+
+  // Basic Information
+
+  caseNumber        String      @unique
+
+  caseType          String
+
+  caseCategory      String
+
+  priority          Priority    @default(MEDIUM)
+
+  status            CaseStatus  @default(DRAFT)
+
+  source            CaseSource?
+
+  description       String?
+
+  // Assignment
+
+  assignedOfficerId String?
+
+  assignedOfficer   User?       @relation("AssignedOfficer", fields: [assignedOfficerId], references: [id])
+
+  // Created By
+
+  createdById       String
+
+  createdBy         User        @relation("CreatedBy", fields: [createdById], references: [id])
+
+  // Dates
+
+  createdAt         DateTime    @default(now())
+
+  updatedAt         DateTime    @updatedAt
+
+  // Audit
+
+  createdByRef      String?
+
+  updatedByRef      String?
+
+  // Soft Delete
+
+  deletedAt         DateTime?
+
+  deletedBy         String?
+
+  // Relations
+
+  accident          Accident?
+
+  victims           Victim[]
+
+  vehicles          Vehicle[]
+
+  policeDetails     PoliceDetail?
+
+  legalDetail       LegalDetail?
+
+  documents         Document[]
+
+  caseNotes         CaseNote[]
+
+  timelines         Timeline[]
+
+  activityLogs      ActivityLog[]
+
+  caseAssignments   CaseAssignment[]
+
+  statusHistory     CaseStatusHistory[]
+
+  // Indexes
+
+  @@index([caseNumber])
+
+  @@index([status])
+
+  @@index([priority])
+
+  @@index([assignedOfficerId])
+
+  @@index([createdAt])
+
+  @@map("cases")
+}
+
+// ======================================================
+// ACCIDENT
+// ======================================================
+
+model Accident {
+  id               String             @id @default(cuid())
+
+  caseId           String             @unique
+  case             Case               @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  accidentDate     DateTime
+  accidentTime     String
+
+  district         String
+  taluk            String?
+  village          String?
+
+  location         String
+
+  latitude         Float?
+  longitude        Float?
+
+  policeStation    String
+
+  accidentType     AccidentType
+  weatherCondition WeatherCondition?
+
+  description      String?
+
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  createdByRef     String?
+  updatedByRef     String?
+
+  deletedAt        DateTime?
+  deletedBy        String?
+
+  @@index([accidentDate])
+  @@index([district])
+  @@index([policeStation])
+
+  @@map("accidents")
+}
+
+// ======================================================
+// VICTIM
+// ======================================================
+
 model Victim {
-  id                String   @id @default(cuid())
-  name              String
-  guardianRelation  String?
-  guardianName      String?
-  age               Int
-  gender            String
-  contact           String
-  aadhaarNumber     String?
-  address           String?
-  caseId            String?
-  injuryType        String
-  status            String   @default("Active")
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+
+  id               String        @id @default(cuid())
+
+  caseId           String
+  case             Case          @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  name             String
+
+  guardianRelation String?
+  guardianName     String?
+
+  age              Int
+
+  gender           Gender
+
+  mobile           String?
+
+  email            String?
+
+  aadhaarNumber    String?
+
+  address          String?
+
+  injuryType       String
+
+  emergencyContact String?
+
+  status           VictimStatus  @default(ACTIVE)
+
+  occupation           String?
+  monthlyIncome        Decimal?
+  maritalStatus        MaritalStatus?
+  bloodGroup           String?
+  disabilityPercentage Decimal?
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  createdByRef     String?
+  updatedByRef     String?
+
+  deletedAt        DateTime?
+  deletedBy        String?
+
+  medicalDetails   MedicalDetail[]
+
+  documents        Document[]
+
+  @@index([caseId])
+  @@index([name])
+  @@index([mobile])
+  @@index([aadhaarNumber])
 
   @@map("victims")
+}
+
+// ======================================================
+// VEHICLE
+// ======================================================
+
+model Vehicle {
+
+  id                 String      @id @default(cuid())
+
+  caseId             String
+  case               Case        @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  registrationNumber String      @unique
+
+  vehicleType        VehicleType
+
+  brand              String?
+  model              String?
+
+  ownerName          String
+
+  driverName         String?
+
+  drivingLicence     String?
+
+  rcNumber           String?
+
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  createdByRef       String?
+  updatedByRef       String?
+
+  deletedAt          DateTime?
+  deletedBy          String?
+
+  insuranceDetails   InsuranceDetail[]
+
+  documents          Document[]
+
+  @@index([caseId])
+
+  @@map("vehicles")
+}
+
+// ======================================================
+// MEDICAL DETAIL
+// ======================================================
+
+model MedicalDetail {
+
+  id             String @id @default(cuid())
+
+  victimId       String
+  victim         Victim @relation(fields: [victimId], references: [id], onDelete: Cascade)
+
+  hospitalName   String
+
+  doctorName     String?
+
+  mlcNumber      String?
+
+  admissionDate  DateTime?
+
+  dischargeDate  DateTime?
+
+  injuryDetails  String?
+
+  death          Boolean @default(false)
+
+  postmortemDone Boolean @default(false)
+
+  treatmentCost  Decimal?
+
+  remarks        String?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  createdByRef   String?
+  updatedByRef   String?
+
+  deletedAt      DateTime?
+  deletedBy      String?
+
+  @@index([victimId])
+  @@index([mlcNumber])
+
+  @@map("medical_details")
+}
+
+// ======================================================
+// POLICE DETAIL
+// ======================================================
+
+model PoliceDetail {
+
+  id                   String @id @default(cuid())
+
+  caseId               String @unique
+  case                 Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  firNumber            String @unique
+
+  firDate              DateTime?
+
+  crimeNumber          String?
+
+  policeStation        String
+
+  investigatingOfficer String?
+
+  investigationStatus  String?
+
+  chargeSheetFiled     Boolean @default(false)
+
+  remarks              String?
+
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  createdByRef         String?
+  updatedByRef         String?
+
+  deletedAt            DateTime?
+  deletedBy            String?
+
+  @@index([crimeNumber])
+
+  @@map("police_details")
+}
+
+// ======================================================
+// LEGAL DETAIL
+// ======================================================
+
+model LegalDetail {
+
+  id                 String @id @default(cuid())
+
+  caseId             String @unique
+  case               Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  advocateName       String?
+  advocateMobile     String?
+  advocateEmail      String?
+
+  mvcNumber          String? @unique
+
+  mvcFiledDate       DateTime?
+
+  courtName          String?
+
+  compensationStatus CompensationStatus @default(PENDING)
+
+  remarks            String?
+
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  deletedAt          DateTime?
+  deletedBy          String?
+
+  @@map("legal_details")
+}
+
+// ======================================================
+// INSURANCE DETAIL
+// ======================================================
+
+model InsuranceDetail {
+
+  id                   String @id @default(cuid())
+
+  vehicleId            String
+
+  vehicle              Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  insuranceCompany     String
+
+  policyNumber         String @unique
+
+  policyHolder         String
+
+  policyStartDate      DateTime?
+
+  policyEndDate        DateTime?
+
+  surveyor             String?
+
+  coverageAmount       Decimal?
+
+  estimatedClaimAmount Decimal?
+
+  remarks              String?
+
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  createdByRef         String?
+  updatedByRef         String?
+
+  deletedAt            DateTime?
+  deletedBy            String?
+
+  @@index([vehicleId])
+
+  @@map("insurance_details")
+}
+
+// ======================================================
+// DOCUMENT TYPE
+// ======================================================
+
+model DocumentType {
+
+  id          String   @id @default(cuid())
+
+  name        String   @unique
+
+  description String?
+
+  isMandatory Boolean  @default(false)
+
+  createdAt   DateTime @default(now())
+
+  updatedAt   DateTime @updatedAt
+
+  createdByRef String?
+  updatedByRef String?
+
+  documents   Document[]
+
+  @@map("document_types")
+}
+
+// ======================================================
+// FILE UPLOAD (Cloudflare R2 Metadata)
+// ======================================================
+
+model FileUpload {
+
+  id           String   @id @default(cuid())
+
+  originalName String
+
+  storedName   String
+
+  bucket       String
+
+  objectKey    String
+
+  fileUrl      String
+
+  mimeType     String
+
+  extension    String
+
+  fileSize     Int
+
+  uploadedBy   String
+
+  uploader     User     @relation(fields: [uploadedBy], references: [id])
+
+  uploadedAt   DateTime @default(now())
+
+  createdAt    DateTime @default(now())
+
+  document     Document?
+
+  @@index([uploadedBy])
+
+  @@map("file_uploads")
+}
+
+// ======================================================
+// DOCUMENT
+// ======================================================
+
+model Document {
+
+  id               String                     @id @default(cuid())
+
+  caseId           String
+  case             Case                       @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  victimId         String?
+  victim           Victim?                    @relation(fields: [victimId], references: [id], onDelete: SetNull)
+
+  vehicleId        String?
+  vehicle          Vehicle?                   @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+
+  documentTypeId   String
+  documentType     DocumentType               @relation(fields: [documentTypeId], references: [id])
+
+  fileUploadId     String @unique
+  fileUpload       FileUpload @relation(fields: [fileUploadId], references: [id])
+
+  received         Boolean @default(false)
+
+  receivedDate     DateTime?
+
+  verified         DocumentVerificationStatus @default(PENDING)
+
+  verifiedBy       String?
+
+  verifier         User? @relation("VerifiedBy", fields: [verifiedBy], references: [id])
+
+  uploaded         Boolean @default(false)
+
+  remarks          String?
+
+  createdAt        DateTime @default(now())
+
+  updatedAt        DateTime @updatedAt
+
+  createdByRef     String?
+
+  updatedByRef     String?
+
+  deletedAt        DateTime?
+
+  deletedBy        String?
+
+  @@index([caseId])
+
+  @@index([victimId])
+
+  @@index([vehicleId])
+
+  @@index([documentTypeId])
+
+  @@map("documents")
+}
+
+// ======================================================
+// CASE NOTE
+// ======================================================
+
+model CaseNote {
+
+  id        String   @id @default(cuid())
+
+  caseId    String
+  case      Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+
+  note      String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  createdByRef String?
+  updatedByRef String?
+
+  deletedAt DateTime?
+  deletedBy String?
+
+  @@index([caseId])
+
+  @@map("case_notes")
+}
+
+// ======================================================
+// TIMELINE
+// ======================================================
+
+model Timeline {
+
+  id          String   @id @default(cuid())
+
+  caseId      String
+  case        Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  title       String
+
+  description String?
+
+  eventDate   DateTime
+
+  createdBy   String
+  creator     User     @relation("TimelineCreatedBy", fields: [createdBy], references: [id])
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  updatedByRef String?
+
+  deletedAt DateTime?
+  deletedBy String?
+
+  @@index([caseId])
+
+  @@map("timelines")
+}
+
+// ======================================================
+// ACTIVITY LOG
+// ======================================================
+
+model ActivityLog {
+
+  id        String   @id @default(cuid())
+
+  caseId    String
+  case      Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+
+  action    String
+
+  oldValue  String?
+
+  newValue  String?
+
+  ipAddress String?
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  @@index([caseId])
+
+  @@map("activity_logs")
+}
+
+// ======================================================
+// CASE ASSIGNMENT
+// ======================================================
+
+model CaseAssignment {
+
+  id             String   @id @default(cuid())
+
+  caseId         String
+  case           Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  assignedTo     String
+  assignedToUser User     @relation("AssignedTo", fields: [assignedTo], references: [id])
+
+  assignedBy     String
+  assignedByUser User     @relation("AssignedBy", fields: [assignedBy], references: [id])
+
+  assignedDate   DateTime @default(now())
+
+  remarks        String?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  deletedAt      DateTime?
+  deletedBy      String?
+
+  @@index([caseId])
+
+  @@map("case_assignments")
+}
+
+// ======================================================
+// NOTIFICATION
+// ======================================================
+
+model Notification {
+
+  id        String           @id @default(cuid())
+
+  userId    String
+  user      User             @relation(fields: [userId], references: [id])
+
+  title     String
+
+  message   String
+
+  type      NotificationType @default(INFO)
+
+  isRead    Boolean          @default(false)
+
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  deletedAt DateTime?
+  deletedBy String?
+
+  @@index([userId])
+
+  @@map("notifications")
+}
+
+// ======================================================
+// CASE STATUS HISTORY
+// ======================================================
+
+model CaseStatusHistory {
+
+  id        String      @id @default(cuid())
+
+  caseId    String
+  case      Case        @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  oldStatus CaseStatus?
+
+  newStatus CaseStatus
+
+  changedBy String
+
+  remarks   String?
+
+  changedAt DateTime @default(now())
+
+  @@index([caseId])
+
+  @@map("case_status_history")
 }
