@@ -1,3 +1,4 @@
+//client\src\pages\Cases\CaseManagement.jsx
 import React from 'react'
 import { FolderKanban, FolderOpen, CheckCircle2, Clock } from 'lucide-react'
 import ManagementPage from '../../components/ManagementPage.jsx'
