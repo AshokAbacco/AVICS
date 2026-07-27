@@ -41,6 +41,7 @@ export default function AppRoutes() {
         <Route path="/login" element={<Login />} />
       </Route>
       */}
+      
 
       {/* Temporary redirect so /login never shows 404 */}
       <Route path="/login" element={<Navigate to="/dashboard" replace />} />
