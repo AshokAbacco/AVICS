@@ -16,14 +16,17 @@ enum UserStatus {
   INACTIVE
 }
 
+// Updated to match the client-provided case status list exactly.
 enum CaseStatus {
   DRAFT
-  OPEN
+  SUBMITTED
+  PENDING_DOCUMENTS
+  PENDING_VERIFICATION
   UNDER_INVESTIGATION
-  DOCUMENT_PENDING
+  UNDER_LEGAL_REVIEW
   CLAIM_PROCESSING
-  APPROVED
-  REJECTED
+  COMPENSATION_APPROVED
+  COMPENSATION_REJECTED
   CLOSED
 }
 
@@ -115,45 +118,55 @@ enum CaseSource {
   OTHER
 }
 
+// New: distinguishes which checklist a DocumentType belongs to.
+// CASE      -> created once per case (e.g. FIR Copy, Charge Sheet)
+// VICTIM    -> created once per victim (e.g. Aadhaar Card, Medical Bills)
+// VEHICLE   -> created once per vehicle (e.g. RC Book, Insurance Policy)
+enum DocumentCategory {
+  CASE
+  VICTIM
+  VEHICLE
+}
+
 // ======================================================
 // USER
 // ======================================================
 
 model User {
-  id         String     @id @default(cuid())
-  name       String
-  email      String     @unique
-  password   String
+  id       String @id @default(cuid())
+  name     String
+  email    String @unique
+  password String
 
-  role       String     @default("Data Entry Operator")
+  role       String  @default("Data Entry Operator")
   department String?
 
-  status     UserStatus @default(ACTIVE)
+  status UserStatus @default(ACTIVE)
 
-  lastLogin  DateTime?
+  lastLogin DateTime?
 
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
 
-  casesAssigned     Case[]           @relation("AssignedOfficer")
-  casesCreated      Case[]           @relation("CreatedBy")
+  casesAssigned Case[] @relation("AssignedOfficer")
+  casesCreated  Case[] @relation("CreatedBy")
 
-  documentsVerified Document[]       @relation("VerifiedBy")
+  documentsVerified Document[] @relation("VerifiedBy")
 
-  fileUploads       FileUpload[]
+  fileUploads FileUpload[]
 
-  caseNotes         CaseNote[]
+  caseNotes CaseNote[]
 
-  timelinesCreated  Timeline[]       @relation("TimelineCreatedBy")
+  timelinesCreated Timeline[] @relation("TimelineCreatedBy")
 
-  activityLogs      ActivityLog[]
+  activityLogs ActivityLog[]
 
-  assignmentsTo     CaseAssignment[] @relation("AssignedTo")
-  assignmentsBy     CaseAssignment[] @relation("AssignedBy")
+  assignmentsTo CaseAssignment[] @relation("AssignedTo")
+  assignmentsBy CaseAssignment[] @relation("AssignedBy")
 
-  notifications     Notification[]
+  notifications Notification[]
 
   @@map("users")
 }
@@ -163,92 +176,105 @@ model User {
 // ======================================================
 
 model Case {
-
-  id                String      @id @default(cuid())
+  id String @id @default(cuid())
 
   // Basic Information
 
-  caseNumber        String      @unique
+  caseNumber String @unique
 
-  caseType          String
+  caseType String
 
-  caseCategory      String
+  caseCategory String
 
-  priority          Priority    @default(MEDIUM)
+  priority Priority @default(MEDIUM)
 
-  status            CaseStatus  @default(DRAFT)
+  status CaseStatus @default(DRAFT)
 
-  source            CaseSource?
+  source CaseSource?
 
-  description       String?
+  description String?
 
   // Assignment
 
   assignedOfficerId String?
 
-  assignedOfficer   User?       @relation("AssignedOfficer", fields: [assignedOfficerId], references: [id])
+  assignedOfficer User? @relation("AssignedOfficer", fields: [assignedOfficerId], references: [id])
 
   // Created By
 
-  createdById       String
+  createdById String
 
-  createdBy         User        @relation("CreatedBy", fields: [createdById], references: [id])
+  createdBy User @relation("CreatedBy", fields: [createdById], references: [id])
 
   // Dates
 
-  createdAt         DateTime    @default(now())
+  createdAt DateTime @default(now())
 
-  updatedAt         DateTime    @updatedAt
+  updatedAt DateTime @updatedAt
 
   // Audit
 
-  createdByRef      String?
+  createdByRef String?
 
-  updatedByRef      String?
+  updatedByRef String?
 
   // Soft Delete
 
-  deletedAt         DateTime?
+  deletedAt DateTime?
 
-  deletedBy         String?
+  deletedBy String?
 
   // Relations
 
-  accident          Accident?
+  accident Accident?
 
-  victims           Victim[]
+  victims Victim[]
 
-  vehicles          Vehicle[]
+  vehicles Vehicle[]
 
-  policeDetails     PoliceDetail?
+  policeDetails PoliceDetail?
 
-  legalDetail       LegalDetail?
+  legalDetail LegalDetail?
 
-  documents         Document[]
+  documents Document[]
 
-  caseNotes         CaseNote[]
+  caseNotes CaseNote[]
 
-  timelines         Timeline[]
+  timelines Timeline[]
 
-  activityLogs      ActivityLog[]
+  activityLogs ActivityLog[]
 
-  caseAssignments   CaseAssignment[]
+  caseAssignments CaseAssignment[]
 
-  statusHistory     CaseStatusHistory[]
+  statusHistory CaseStatusHistory[]
 
   // Indexes
 
   @@index([caseNumber])
-
   @@index([status])
-
   @@index([priority])
-
   @@index([assignedOfficerId])
-
   @@index([createdAt])
-
   @@map("cases")
+}
+
+// ======================================================
+// CASE SEQUENCE (atomic case number generation)
+// ======================================================
+
+// Backs generateCaseNumber(): one row per year, lastNumber incremented
+// inside the same transaction as case creation to avoid race conditions.
+// Produces numbers like MVC-2026-000001 (prefix comes from env config).
+model CaseSequence {
+  id String @id @default(cuid())
+
+  year Int @unique
+
+  lastNumber Int @default(0)
+
+  updatedAt DateTime @updatedAt
+
+  @@map("case_sequences")
 }
 
 // ======================================================
@@ -256,43 +282,45 @@ model Case {
 // ======================================================
 
 model Accident {
-  id               String             @id @default(cuid())
+  id String @id @default(cuid())
 
-  caseId           String             @unique
-  case             Case               @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  caseId String @unique
+  case   Case   @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
-  accidentDate     DateTime
-  accidentTime     String
+  accidentDate DateTime
+  accidentTime String
 
-  district         String
-  taluk            String?
-  village          String?
+  district String
+  taluk    String?
+  village  String?
 
-  location         String
+  // Made optional — not part of the client's Step 1 field list, so it
+  // shouldn't block saving the accident details step.
+  location String?
 
-  latitude         Float?
-  longitude        Float?
+  latitude  Float?
+  longitude Float?
 
-  policeStation    String
+  policeStation String
 
-  accidentType     AccidentType
+  // Made optional — same reasoning as `location`.
+  accidentType     AccidentType?
   weatherCondition WeatherCondition?
 
-  description      String?
+  description String?
 
-  createdAt        DateTime           @default(now())
-  updatedAt        DateTime           @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  createdByRef     String?
-  updatedByRef     String?
+  createdByRef String?
+  updatedByRef String?
 
-  deletedAt        DateTime?
-  deletedBy        String?
+  deletedAt DateTime?
+  deletedBy String?
 
   @@index([accidentDate])
   @@index([district])
   @@index([policeStation])
-
   @@map("accidents")
 }
 
@@ -301,34 +329,35 @@ model Accident {
 // ======================================================
 
 model Victim {
+  id String @id @default(cuid())
 
-  id               String        @id @default(cuid())
+  caseId String
+  case   Case   @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
-  caseId           String
-  case             Case          @relation(fields: [caseId], references: [id], onDelete: Cascade)
-
-  name             String
+  name String
 
   guardianRelation String?
   guardianName     String?
 
-  age              Int
+  age Int
 
-  gender           Gender
+  gender Gender
 
-  mobile           String?
+  mobile String?
 
-  email            String?
+  email String?
 
-  aadhaarNumber    String?
+  aadhaarNumber String?
 
-  address          String?
+  address String?
 
-  injuryType       String
+  // Made optional — belongs conceptually to Medical Details (captured via
+  // MedicalDetail.injuryDetails in Step 4), not the Victim Details step.
+  injuryType String?
 
   emergencyContact String?
 
-  status           VictimStatus  @default(ACTIVE)
+  status VictimStatus @default(ACTIVE)
 
   occupation           String?
   monthlyIncome        Decimal?
@@ -336,24 +365,23 @@ model Victim {
   bloodGroup           String?
   disabilityPercentage Decimal?
 
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  createdByRef     String?
-  updatedByRef     String?
+  createdByRef String?
+  updatedByRef String?
 
-  deletedAt        DateTime?
-  deletedBy        String?
+  deletedAt DateTime?
+  deletedBy String?
 
-  medicalDetails   MedicalDetail[]
+  medicalDetails MedicalDetail[]
 
-  documents        Document[]
+  documents Document[]
 
   @@index([caseId])
   @@index([name])
   @@index([mobile])
   @@index([aadhaarNumber])
-
   @@map("victims")
 }
 
@@ -362,42 +390,44 @@ model Victim {
 // ======================================================
 
 model Vehicle {
+  id String @id @default(cuid())
 
-  id                 String      @id @default(cuid())
+  caseId String
+  case   Case   @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
-  caseId             String
-  case               Case        @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  // Unique constraint removed — the same vehicle can legitimately be
+  // involved in more than one case over its lifetime. Indexed instead
+  // for fast lookups.
+  registrationNumber String
 
-  registrationNumber String      @unique
+  vehicleType VehicleType
 
-  vehicleType        VehicleType
+  brand String?
+  model String?
 
-  brand              String?
-  model              String?
+  ownerName String
 
-  ownerName          String
+  driverName String?
 
-  driverName         String?
+  drivingLicence String?
 
-  drivingLicence     String?
+  rcNumber String?
 
-  rcNumber           String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdByRef String?
+  updatedByRef String?
 
-  createdByRef       String?
-  updatedByRef       String?
+  deletedAt DateTime?
+  deletedBy String?
 
-  deletedAt          DateTime?
-  deletedBy          String?
+  insuranceDetails InsuranceDetail[]
 
-  insuranceDetails   InsuranceDetail[]
-
-  documents          Document[]
+  documents Document[]
 
   @@index([caseId])
-
+  @@index([registrationNumber])
   @@map("vehicles")
 }
 
@@ -406,44 +436,42 @@ model Vehicle {
 // ======================================================
 
 model MedicalDetail {
+  id String @id @default(cuid())
 
-  id             String @id @default(cuid())
+  victimId String
+  victim   Victim @relation(fields: [victimId], references: [id], onDelete: Cascade)
 
-  victimId       String
-  victim         Victim @relation(fields: [victimId], references: [id], onDelete: Cascade)
+  hospitalName String
 
-  hospitalName   String
+  doctorName String?
 
-  doctorName     String?
+  mlcNumber String?
 
-  mlcNumber      String?
+  admissionDate DateTime?
 
-  admissionDate  DateTime?
+  dischargeDate DateTime?
 
-  dischargeDate  DateTime?
+  injuryDetails String?
 
-  injuryDetails  String?
-
-  death          Boolean @default(false)
+  death Boolean @default(false)
 
   postmortemDone Boolean @default(false)
 
-  treatmentCost  Decimal?
+  treatmentCost Decimal?
 
-  remarks        String?
+  remarks String?
 
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  createdByRef   String?
-  updatedByRef   String?
+  createdByRef String?
+  updatedByRef String?
 
-  deletedAt      DateTime?
-  deletedBy      String?
+  deletedAt DateTime?
+  deletedBy String?
 
   @@index([victimId])
   @@index([mlcNumber])
-
   @@map("medical_details")
 }
 
@@ -452,39 +480,37 @@ model MedicalDetail {
 // ======================================================
 
 model PoliceDetail {
+  id String @id @default(cuid())
 
-  id                   String @id @default(cuid())
+  caseId String @unique
+  case   Case   @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
-  caseId               String @unique
-  case                 Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  firNumber String @unique
 
-  firNumber            String @unique
+  firDate DateTime?
 
-  firDate              DateTime?
+  crimeNumber String?
 
-  crimeNumber          String?
-
-  policeStation        String
+  policeStation String
 
   investigatingOfficer String?
 
-  investigationStatus  String?
+  investigationStatus String?
 
-  chargeSheetFiled     Boolean @default(false)
+  chargeSheetFiled Boolean @default(false)
 
-  remarks              String?
+  remarks String?
 
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  createdByRef         String?
-  updatedByRef         String?
+  createdByRef String?
+  updatedByRef String?
 
-  deletedAt            DateTime?
-  deletedBy            String?
+  deletedAt DateTime?
+  deletedBy String?
 
   @@index([crimeNumber])
-
   @@map("police_details")
 }
 
@@ -493,31 +519,30 @@ model PoliceDetail {
 // ======================================================
 
 model LegalDetail {
+  id String @id @default(cuid())
 
-  id                 String @id @default(cuid())
+  caseId String @unique
+  case   Case   @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
-  caseId             String @unique
-  case               Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  advocateName   String?
+  advocateMobile String?
+  advocateEmail  String?
 
-  advocateName       String?
-  advocateMobile     String?
-  advocateEmail      String?
+  mvcNumber String? @unique
 
-  mvcNumber          String? @unique
+  mvcFiledDate DateTime?
 
-  mvcFiledDate       DateTime?
-
-  courtName          String?
+  courtName String?
 
   compensationStatus CompensationStatus @default(PENDING)
 
-  remarks            String?
+  remarks String?
 
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  deletedAt          DateTime?
-  deletedBy          String?
+  deletedAt DateTime?
+  deletedBy String?
 
   @@map("legal_details")
 }
@@ -527,42 +552,40 @@ model LegalDetail {
 // ======================================================
 
 model InsuranceDetail {
+  id String @id @default(cuid())
 
-  id                   String @id @default(cuid())
+  vehicleId String
 
-  vehicleId            String
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
 
-  vehicle              Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  insuranceCompany String
 
-  insuranceCompany     String
+  policyNumber String @unique
 
-  policyNumber         String @unique
+  policyHolder String
 
-  policyHolder         String
+  policyStartDate DateTime?
 
-  policyStartDate      DateTime?
+  policyEndDate DateTime?
 
-  policyEndDate        DateTime?
+  surveyor String?
 
-  surveyor             String?
-
-  coverageAmount       Decimal?
+  coverageAmount Decimal?
 
   estimatedClaimAmount Decimal?
 
-  remarks              String?
+  remarks String?
 
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  createdByRef         String?
-  updatedByRef         String?
+  createdByRef String?
+  updatedByRef String?
 
-  deletedAt            DateTime?
-  deletedBy            String?
+  deletedAt DateTime?
+  deletedBy String?
 
   @@index([vehicleId])
-
   @@map("insurance_details")
 }
 
@@ -571,23 +594,26 @@ model InsuranceDetail {
 // ======================================================
 
 model DocumentType {
+  id String @id @default(cuid())
 
-  id          String   @id @default(cuid())
-
-  name        String   @unique
+  name String @unique
 
   description String?
 
-  isMandatory Boolean  @default(false)
+  // New — determines whether this checklist item is auto-created once
+  // per case, once per victim, or once per vehicle.
+  category DocumentCategory @default(CASE)
 
-  createdAt   DateTime @default(now())
+  isMandatory Boolean @default(false)
 
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
 
   createdByRef String?
   updatedByRef String?
 
-  documents   Document[]
+  documents Document[]
 
   @@map("document_types")
 }
@@ -597,37 +623,35 @@ model DocumentType {
 // ======================================================
 
 model FileUpload {
-
-  id           String   @id @default(cuid())
+  id String @id @default(cuid())
 
   originalName String
 
-  storedName   String
+  storedName String
 
-  bucket       String
+  bucket String
 
-  objectKey    String
+  objectKey String
 
-  fileUrl      String
+  fileUrl String
 
-  mimeType     String
+  mimeType String
 
-  extension    String
+  extension String
 
-  fileSize     Int
+  fileSize Int
 
-  uploadedBy   String
+  uploadedBy String
 
-  uploader     User     @relation(fields: [uploadedBy], references: [id])
+  uploader User @relation(fields: [uploadedBy], references: [id])
 
-  uploadedAt   DateTime @default(now())
+  uploadedAt DateTime @default(now())
 
-  createdAt    DateTime @default(now())
+  createdAt DateTime @default(now())
 
-  document     Document?
+  document Document?
 
   @@index([uploadedBy])
-
   @@map("file_uploads")
 }
 
@@ -636,58 +660,55 @@ model FileUpload {
 // ======================================================
 
 model Document {
+  id String @id @default(cuid())
 
-  id               String                     @id @default(cuid())
+  caseId String
+  case   Case   @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
-  caseId           String
-  case             Case                       @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  victimId String?
+  victim   Victim? @relation(fields: [victimId], references: [id], onDelete: SetNull)
 
-  victimId         String?
-  victim           Victim?                    @relation(fields: [victimId], references: [id], onDelete: SetNull)
+  vehicleId String?
+  vehicle   Vehicle? @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
 
-  vehicleId        String?
-  vehicle          Vehicle?                   @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  documentTypeId String
+  documentType   DocumentType @relation(fields: [documentTypeId], references: [id])
 
-  documentTypeId   String
-  documentType     DocumentType               @relation(fields: [documentTypeId], references: [id])
+  // Made optional — checklist rows are auto-created (per our decision)
+  // before any file exists, so there is no FileUpload to link yet.
+  fileUploadId String?     @unique
+  fileUpload   FileUpload? @relation(fields: [fileUploadId], references: [id])
 
-  fileUploadId     String @unique
-  fileUpload       FileUpload @relation(fields: [fileUploadId], references: [id])
+  received Boolean @default(false)
 
-  received         Boolean @default(false)
+  receivedDate DateTime?
 
-  receivedDate     DateTime?
+  verified DocumentVerificationStatus @default(PENDING)
 
-  verified         DocumentVerificationStatus @default(PENDING)
+  verifiedBy String?
 
-  verifiedBy       String?
+  verifier User? @relation("VerifiedBy", fields: [verifiedBy], references: [id])
 
-  verifier         User? @relation("VerifiedBy", fields: [verifiedBy], references: [id])
+  uploaded Boolean @default(false)
 
-  uploaded         Boolean @default(false)
+  remarks String?
 
-  remarks          String?
+  createdAt DateTime @default(now())
 
-  createdAt        DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  updatedAt        DateTime @updatedAt
+  createdByRef String?
 
-  createdByRef     String?
+  updatedByRef String?
 
-  updatedByRef     String?
+  deletedAt DateTime?
 
-  deletedAt        DateTime?
-
-  deletedBy        String?
+  deletedBy String?
 
   @@index([caseId])
-
   @@index([victimId])
-
   @@index([vehicleId])
-
   @@index([documentTypeId])
-
   @@map("documents")
 }
 
@@ -696,16 +717,15 @@ model Document {
 // ======================================================
 
 model CaseNote {
+  id String @id @default(cuid())
 
-  id        String   @id @default(cuid())
+  caseId String
+  case   Case   @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
-  caseId    String
-  case      Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
 
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-
-  note      String
+  note String
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -717,7 +737,6 @@ model CaseNote {
   deletedBy String?
 
   @@index([caseId])
-
   @@map("case_notes")
 }
 
@@ -726,23 +745,22 @@ model CaseNote {
 // ======================================================
 
 model Timeline {
+  id String @id @default(cuid())
 
-  id          String   @id @default(cuid())
+  caseId String
+  case   Case   @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
-  caseId      String
-  case        Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
-
-  title       String
+  title String
 
   description String?
 
-  eventDate   DateTime
+  eventDate DateTime
 
-  createdBy   String
-  creator     User     @relation("TimelineCreatedBy", fields: [createdBy], references: [id])
+  createdBy String
+  creator   User   @relation("TimelineCreatedBy", fields: [createdBy], references: [id])
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   updatedByRef String?
 
@@ -750,7 +768,6 @@ model Timeline {
   deletedBy String?
 
   @@index([caseId])
-
   @@map("timelines")
 }
 
@@ -759,20 +776,19 @@ model Timeline {
 // ======================================================
 
 model ActivityLog {
+  id String @id @default(cuid())
 
-  id        String   @id @default(cuid())
+  caseId String
+  case   Case   @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
-  caseId    String
-  case      Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
 
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
+  action String
 
-  action    String
+  oldValue String?
 
-  oldValue  String?
-
-  newValue  String?
+  newValue String?
 
   ipAddress String?
 
@@ -781,7 +797,6 @@ model ActivityLog {
   updatedAt DateTime @updatedAt
 
   @@index([caseId])
-
   @@map("activity_logs")
 }
 
@@ -790,30 +805,28 @@ model ActivityLog {
 // ======================================================
 
 model CaseAssignment {
+  id String @id @default(cuid())
 
-  id             String   @id @default(cuid())
-
-  caseId         String
-  case           Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  caseId String
+  case   Case   @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
   assignedTo     String
-  assignedToUser User     @relation("AssignedTo", fields: [assignedTo], references: [id])
+  assignedToUser User   @relation("AssignedTo", fields: [assignedTo], references: [id])
 
   assignedBy     String
-  assignedByUser User     @relation("AssignedBy", fields: [assignedBy], references: [id])
+  assignedByUser User   @relation("AssignedBy", fields: [assignedBy], references: [id])
 
-  assignedDate   DateTime @default(now())
+  assignedDate DateTime @default(now())
 
-  remarks        String?
+  remarks String?
 
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  deletedAt      DateTime?
-  deletedBy      String?
+  deletedAt DateTime?
+  deletedBy String?
 
   @@index([caseId])
-
   @@map("case_assignments")
 }
 
@@ -822,28 +835,26 @@ model CaseAssignment {
 // ======================================================
 
 model Notification {
+  id String @id @default(cuid())
 
-  id        String           @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
 
-  userId    String
-  user      User             @relation(fields: [userId], references: [id])
+  title String
 
-  title     String
+  message String
 
-  message   String
+  type NotificationType @default(INFO)
 
-  type      NotificationType @default(INFO)
+  isRead Boolean @default(false)
 
-  isRead    Boolean          @default(false)
-
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   deletedAt DateTime?
   deletedBy String?
 
   @@index([userId])
-
   @@map("notifications")
 }
 
@@ -852,11 +863,10 @@ model Notification {
 // ======================================================
 
 model CaseStatusHistory {
+  id String @id @default(cuid())
 
-  id        String      @id @default(cuid())
-
-  caseId    String
-  case      Case        @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  caseId String
+  case   Case   @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
   oldStatus CaseStatus?
 
@@ -864,11 +874,10 @@ model CaseStatusHistory {
 
   changedBy String
 
-  remarks   String?
+  remarks String?
 
   changedAt DateTime @default(now())
 
   @@index([caseId])
-
   @@map("case_status_history")
 }
