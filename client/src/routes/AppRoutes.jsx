@@ -31,6 +31,7 @@ export default function AppRoutes() {
         <Route path="/login" element={<Login />} />
       </Route>
       */}
+      
 
       {/* Temporary Login Redirect */}
       <Route path="/login" element={<Navigate to="/dashboard" replace />} />
