@@ -1,3 +1,4 @@
+//client\src\components\StatusBadge.jsx
 import React from 'react'
 import { getStatusStyle } from '../constants/status.js'
 

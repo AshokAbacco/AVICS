@@ -19,9 +19,7 @@ enum UserStatus {
 // Updated to match the client-provided case status list exactly.
 enum CaseStatus {
   DRAFT
-  SUBMITTED
-  PENDING_DOCUMENTS
-  PENDING_VERIFICATION
+  OPEN
   UNDER_INVESTIGATION
   UNDER_LEGAL_REVIEW
   CLAIM_PROCESSING
@@ -592,11 +590,15 @@ model InsuranceDetail {
 // ======================================================
 // DOCUMENT TYPE
 // ======================================================
-
+// ======================================================
+// DOCUMENT TYPE
+// ======================================================
 model DocumentType {
   id String @id @default(cuid())
 
-  name String @unique
+  id          String   @id @default(cuid())
+
+  name        String   @unique
 
   description String?
 
@@ -674,10 +676,8 @@ model Document {
   documentTypeId String
   documentType   DocumentType @relation(fields: [documentTypeId], references: [id])
 
-  // Made optional — checklist rows are auto-created (per our decision)
-  // before any file exists, so there is no FileUpload to link yet.
-  fileUploadId String?     @unique
-  fileUpload   FileUpload? @relation(fields: [fileUploadId], references: [id])
+  fileUploadId     String @unique
+  fileUpload       FileUpload @relation(fields: [fileUploadId], references: [id])
 
   received Boolean @default(false)
 
