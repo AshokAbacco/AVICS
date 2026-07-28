@@ -18,6 +18,7 @@ enum UserStatus {
 
 enum CaseStatus {
   DRAFT
+  SUBMITTED
   OPEN
   UNDER_INVESTIGATION
   DOCUMENT_PENDING
@@ -569,12 +570,16 @@ model InsuranceDetail {
 // ======================================================
 // DOCUMENT TYPE
 // ======================================================
-
+// ======================================================
+// DOCUMENT TYPE
+// ======================================================
 model DocumentType {
 
   id          String   @id @default(cuid())
 
   name        String   @unique
+
+  category    DocumentCategory
 
   description String?
 
@@ -651,8 +656,8 @@ model Document {
   documentTypeId   String
   documentType     DocumentType               @relation(fields: [documentTypeId], references: [id])
 
-  fileUploadId     String @unique
-  fileUpload       FileUpload @relation(fields: [fileUploadId], references: [id])
+  fileUploadId     String? @unique
+  fileUpload       FileUpload? @relation(fields: [fileUploadId], references: [id])
 
   received         Boolean @default(false)
 
@@ -871,4 +876,29 @@ model CaseStatusHistory {
   @@index([caseId])
 
   @@map("case_status_history")
+}
+
+enum DocumentCategory {
+  CASE
+  VICTIM
+  VEHICLE
+}
+
+
+// ======================================================
+// CASE SEQUENCE (yearly running counter for case numbers)
+// ======================================================
+
+model CaseSequence {
+
+  id         String @id @default(cuid())
+
+  year       Int    @unique
+
+  lastNumber Int    @default(0)
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("case_sequences")
 }

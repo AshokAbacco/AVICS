@@ -28,7 +28,7 @@ async function main() {
   await seedDevUsers()
 
   for (const docType of DOCUMENT_TYPE_SEED) {
-    await prisma.documentType.upsert({
+    await prisma.DocumentType.upsert({
       where: { name: docType.name },
       create: docType,
       update: { category: docType.category },

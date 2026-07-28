@@ -51,6 +51,10 @@ export default function AppRoutes() {
         {/* Case Management */}
         <Route path="/cases" element={<CaseManagement />} />
 
+        {/* New Case Wizard — Step 1 has no caseId yet, later steps do */}
+        <Route path="/cases/new" element={<NewCaseWizard />} />
+        <Route path="/cases/new/:caseId/:step" element={<NewCaseWizard />} />
+
         {/* Case Details — read/edit view for a submitted case, tabbed */}
         <Route path="/cases/:id" element={<CaseDetails />} />
         <Route path="/cases/:id/:tab" element={<CaseDetails />} />

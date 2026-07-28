@@ -11,7 +11,6 @@ export async function addVictim({ caseId, payload, userId }) {
   return prisma.$transaction(async (tx) => {
     const victim = await tx.victim.create({
       data: {
-        caseId,
         name,
         guardianRelation: guardianRelation || null,
         guardianName: guardianName || null,
@@ -21,10 +20,16 @@ export async function addVictim({ caseId, payload, userId }) {
         email: email || null,
         aadhaarNumber: aadhaarNumber || null,
         address: address || null,
-        injuryType: injuryType || null,
+        injuryType: injuryType || "UNKNOWN",
         emergencyContact: emergencyContact || null,
+
+        case: {
+          connect: {
+            id: caseId,
+          },
+        },
       },
-    })
+    });
 
     // Victim-level checklist (Aadhaar, PAN, Medical Bills, etc.) is created
     // once per victim, the moment that victim is added.
