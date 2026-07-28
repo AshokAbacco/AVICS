@@ -11,11 +11,15 @@ export default function FilterBar({ value, onChange, options = [], label = 'Stat
         className="input-base appearance-none pl-10"
       >
         <option value="All">All {label}</option>
-        {options.map((opt) => (
-          <option key={opt} value={opt}>
-            {opt}
-          </option>
-        ))}
+        {options.map((opt) => {
+          const optionValue = typeof opt === 'string' ? opt : opt.value
+          const optionLabel = typeof opt === 'string' ? opt : opt.label
+          return (
+            <option key={optionValue} value={optionValue}>
+              {optionLabel}
+            </option>
+          )
+        })}
       </select>
     </div>
   )

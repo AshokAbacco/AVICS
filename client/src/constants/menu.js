@@ -16,6 +16,11 @@ export const MENU_ITEMS = [
     path: '/documents',
     icon: 'FileText',
   },
+  {
+    label: "Claim Management",
+    path: '/claims',
+    icon: 'ClipboardCheck',
+  },
 
   {
     label: 'Reports',

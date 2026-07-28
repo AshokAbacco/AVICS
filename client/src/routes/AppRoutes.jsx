@@ -17,6 +17,7 @@ import PoliceManagement from '../pages/Police/PoliceManagement.jsx'
 import CourtManagement from '../pages/Court/CourtManagement.jsx'
 import AdvocateManagement from '../pages/Advocates/AdvocateManagement.jsx'
 import DocumentManagement from '../pages/Documents/DocumentManagement.jsx'
+import ClaimManagement from '../pages/Claims/ClaimManagement.jsx'
 import Reports from '../pages/Reports/Reports.jsx'
 import UserManagement from '../pages/Users/UserManagement.jsx'
 import Notifications from '../pages/Notifications/Notifications.jsx'
@@ -67,6 +68,9 @@ export default function AppRoutes() {
         <Route path="/advocates" element={<AdvocateManagement />} />
         {/* Documents */}
         <Route path="/documents" element={<DocumentManagement />} />
+
+        {/* Claims & Compensation */}
+        <Route path="/claims" element={<ClaimManagement />} />
 
         {/* Reports */}
         <Route path="/reports" element={<Reports />} />

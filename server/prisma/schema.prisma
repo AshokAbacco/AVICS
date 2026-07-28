@@ -246,6 +246,8 @@ model Case {
 
   statusHistory CaseStatusHistory[]
 
+  claims Claim[]
+
   // Indexes
 
   @@index([caseNumber])
@@ -393,10 +395,7 @@ model Vehicle {
   caseId String
   case   Case   @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
-  // Unique constraint removed — the same vehicle can legitimately be
-  // involved in more than one case over its lifetime. Indexed instead
-  // for fast lookups.
-  registrationNumber String
+  registrationNumber String @unique
 
   vehicleType VehicleType
 
@@ -425,7 +424,6 @@ model Vehicle {
   documents Document[]
 
   @@index([caseId])
-  @@index([registrationNumber])
   @@map("vehicles")
 }
 
@@ -596,15 +594,9 @@ model InsuranceDetail {
 model DocumentType {
   id String @id @default(cuid())
 
-  id          String   @id @default(cuid())
-
-  name        String   @unique
+  name String @unique
 
   description String?
-
-  // New — determines whether this checklist item is auto-created once
-  // per case, once per victim, or once per vehicle.
-  category DocumentCategory @default(CASE)
 
   isMandatory Boolean @default(false)
 
@@ -676,8 +668,8 @@ model Document {
   documentTypeId String
   documentType   DocumentType @relation(fields: [documentTypeId], references: [id])
 
-  fileUploadId     String @unique
-  fileUpload       FileUpload @relation(fields: [fileUploadId], references: [id])
+  fileUploadId String     @unique
+  fileUpload   FileUpload @relation(fields: [fileUploadId], references: [id])
 
   received Boolean @default(false)
 
@@ -880,4 +872,95 @@ model CaseStatusHistory {
 
   @@index([caseId])
   @@map("case_status_history")
+}
+
+// ======================================================
+// CLAIM
+// ======================================================
+
+enum ClaimStatus {
+  PENDING
+  UNDER_REVIEW
+  APPROVED
+  PARTIALLY_APPROVED
+  REJECTED
+  CLOSED
+}
+
+enum PaymentStatus {
+  UNPAID
+  PROCESSING
+  PAID
+  PARTIALLY_PAID
+  PENDING
+}
+
+enum ClaimType {
+  VEHICLE_DAMAGE
+  MEDICAL
+  DEATH
+  DISABILITY
+  PROPERTY_DAMAGE
+  THIRD_PARTY
+  OTHER
+}
+
+model Claim {
+  id String @id @default(cuid())
+
+  // Relation
+  caseId String
+  case   Case   @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  // Claim Information
+  claimNumber String @unique
+
+  policyNumber String?
+
+  claimantName String
+
+  claimType ClaimType
+
+  // Amounts
+  claimAmount Decimal @db.Decimal(15, 2)
+
+  approvedAmount Decimal? @default(0) @db.Decimal(15, 2)
+
+  compensationAmount Decimal? @default(0) @db.Decimal(15, 2)
+
+  // Dates
+  submittedDate DateTime @default(now())
+
+  decisionDate DateTime?
+
+  paymentDate DateTime?
+
+  // Status
+  status ClaimStatus @default(PENDING)
+
+  paymentStatus PaymentStatus @default(UNPAID)
+
+  // Additional
+  surveyorName String?
+
+  insuranceCompany String?
+
+  remarks String?
+
+  rejectionReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  createdByRef String?
+  updatedByRef String?
+
+  deletedAt DateTime?
+  deletedBy String?
+
+  @@index([caseId])
+  @@index([claimNumber])
+  @@index([status])
+  @@index([paymentStatus])
+  @@map("claims")
 }
