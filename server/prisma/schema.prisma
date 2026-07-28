@@ -17,9 +17,12 @@ enum UserStatus {
 }
 
 // Updated to match the client-provided case status list exactly.
+// Mirrors caseStatus.constants.js exactly.
 enum CaseStatus {
   DRAFT
-  OPEN
+  SUBMITTED
+  PENDING_DOCUMENTS
+  PENDING_VERIFICATION
   UNDER_INVESTIGATION
   UNDER_LEGAL_REVIEW
   CLAIM_PROCESSING
@@ -596,6 +599,8 @@ model DocumentType {
 
   name String @unique
 
+  category DocumentCategory
+
   description String?
 
   isMandatory Boolean @default(false)
@@ -668,8 +673,8 @@ model Document {
   documentTypeId String
   documentType   DocumentType @relation(fields: [documentTypeId], references: [id])
 
-  fileUploadId String     @unique
-  fileUpload   FileUpload @relation(fields: [fileUploadId], references: [id])
+  fileUploadId String?     @unique
+  fileUpload   FileUpload? @relation(fields: [fileUploadId], references: [id])
 
   received Boolean @default(false)
 
