@@ -48,6 +48,10 @@ export default function ManagementPage({
   const [loading, setLoading] = useState(!!onFetch)
   const [submitting, setSubmitting] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
+  const [deleteModal, setDeleteModal] = useState({
+    open: false,
+    row: null,
+  });
 
   const { search, setSearch, filterValue, setFilterValue, page, setPage, totalPages, paginated } = useTableData(
     items,
@@ -96,21 +100,55 @@ export default function ManagementPage({
     viewModal.open()
   }
 
-  const handleDelete = async (row) => {
-    if (!window.confirm(`Delete record ${row.id}? This action cannot be undone.`)) return
+  // const handleDelete = async (row) => {
+  //   if (!window.confirm(`Delete record ${row.id}? This action cannot be undone.`)) return
 
-    if (onDelete) {
-      try {
-        await onDelete(row.id)
-        setItems((prev) => prev.filter((item) => item.id !== row.id))
-      } catch (err) {
-        window.alert(err.message || 'Failed to delete record.')
+  //   if (onDelete) {
+  //     try {
+  //       await onDelete(row.id)
+  //       setItems((prev) => prev.filter((item) => item.id !== row.id))
+  //     } catch (err) {
+  //       window.alert(err.message || 'Failed to delete record.')
+  //     }
+  //     return
+  //   }
+
+  //   setItems((prev) => prev.filter((item) => item.id !== row.id))
+  // }
+  
+  const handleDelete = (row) => {
+    setDeleteModal({
+      open: true,
+      row,
+    });
+  };
+  const confirmDelete = async () => {
+    const row = deleteModal.row;
+
+    if (!row) return;
+
+    try {
+      if (onDelete) {
+        await onDelete(row.id);
       }
-      return
-    }
 
-    setItems((prev) => prev.filter((item) => item.id !== row.id))
-  }
+      setItems((prev) => prev.filter((item) => item.id !== row.id));
+
+      setDeleteModal({
+        open: false,
+        row: null,
+      });
+    } catch (err) {
+      alert(err.message || "Failed to delete record.");
+    }
+  };
+
+  const cancelDelete = () => {
+    setDeleteModal({
+      open: false,
+      row: null,
+    });
+  };
 
   const onSubmit = async (data) => {
     setSubmitting(true)
@@ -171,25 +209,91 @@ export default function ManagementPage({
       />
 
       {errorMsg && (
-        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-danger">
+        <div className="px-4 py-3 mb-4 text-sm border border-red-200 rounded-xl bg-red-50 text-danger">
           {errorMsg}
         </div>
       )}
 
       {stats.length > 0 && (
-        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 mb-6 sm:grid-cols-2 xl:grid-cols-4">
           {stats.map((stat, idx) => (
             <StatCard key={stat.label} {...stat} delay={idx * 0.05} />
           ))}
         </div>
       )}
 
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:items-center sm:justify-between">
         <SearchBar value={search} onChange={setSearch} placeholder={`Search ${breadcrumbLabel.toLowerCase()}...`} />
         {filterField && (
           <FilterBar value={filterValue} onChange={setFilterValue} options={filterOptions} label={filterLabel} />
         )}
       </div>
+      {/* delete Claim with model */}
+      {deleteModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="w-full max-w-[340px] sm:max-w-[380px] rounded-xl bg-white dark:bg-gray-900 shadow-xl overflow-hidden">
+
+            {/* Header */}
+            <div className="flex flex-col items-center pt-5">
+              <div className="flex items-center justify-center bg-red-100 rounded-full h-14 w-14 dark:bg-red-900/30">
+                <svg
+                  className="text-red-600 h-7 w-7"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 9v4m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z"
+                  />
+                </svg>
+              </div>
+
+              <h2 className="mt-3 text-lg font-bold text-gray-800 dark:text-white">
+                Delete Record?
+              </h2>
+            </div>
+
+            {/* Body */}
+            <div className="px-5 py-3 text-center">
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                Are you sure you want to delete
+              </p>
+
+              <p className="mt-2 text-base font-semibold text-red-600 break-all">
+                {deleteModal.row?.claimNumber ||
+                  deleteModal.row?.caseNumber ||
+                  deleteModal.row?.name ||
+                  deleteModal.row?.id}
+              </p>
+
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                This action cannot be undone.
+              </p>
+            </div>
+
+            {/* Footer */}
+            <div className="flex gap-2 p-4 border-t border-gray-200 dark:border-gray-700">
+              <button
+                onClick={cancelDelete}
+                className="flex-1 py-2 text-sm font-medium text-gray-700 transition border border-gray-300 rounded-lg dark:border-gray-600 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={confirmDelete}
+                className="flex-1 py-2 text-sm font-medium text-white transition bg-red-600 rounded-lg hover:bg-red-700"
+              >
+                Delete
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
 
       <DataTable
         columns={columns}
@@ -227,11 +331,15 @@ export default function ManagementPage({
                 <label className="block">
                   <span className="mb-1.5 block text-sm font-medium text-slate-600">{field.label}</span>
                   <select className="input-base" {...register(field.name)}>
-                    {field.options.map((opt) => (
-                      <option key={opt} value={opt}>
-                        {opt}
-                      </option>
-                    ))}
+                    {field.options.map((opt) => {
+                      const optionValue = typeof opt === 'string' ? opt : opt.value
+                      const optionLabel = typeof opt === 'string' ? opt : opt.label
+                      return (
+                        <option key={optionValue} value={optionValue}>
+                          {optionLabel}
+                        </option>
+                      )
+                    })}
                   </select>
                 </label>
               ) : (
@@ -242,8 +350,8 @@ export default function ManagementPage({
                     field.name,
                     field.type === 'number'
                       ? {
-                          setValueAs: (v) => (v === '' || v === null || v === undefined ? '' : Number(v)),
-                        }
+                        setValueAs: (v) => (v === '' || v === null || v === undefined ? '' : Number(v)),
+                      }
                       : {}
                   )}
                 />
@@ -263,7 +371,7 @@ export default function ManagementPage({
           <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {Object.entries(selectedRow).map(([key, value]) => (
               <div key={key}>
-                <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">{key}</dt>
+                <dt className="text-xs font-medium tracking-wide uppercase text-slate-400">{key}</dt>
                 <dd className="mt-0.5 text-sm font-medium text-slate-700">{String(value ?? '')}</dd>
               </div>
             ))}

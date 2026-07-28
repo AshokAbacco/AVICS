@@ -9,6 +9,7 @@ import Login from '../pages/Auth/Login.jsx'
 import Dashboard from '../pages/Dashboard/Dashboard.jsx'
 import CaseManagement from '../pages/Cases/CaseManagement.jsx'
 import DocumentManagement from '../pages/Documents/DocumentManagement.jsx'
+import ClaimManagement from '../pages/Claims/ClaimManagement.jsx'
 import Reports from '../pages/Reports/Reports.jsx'
 import UserManagement from '../pages/Users/UserManagement.jsx'
 import Notifications from '../pages/Notifications/Notifications.jsx'
@@ -45,6 +46,9 @@ export default function AppRoutes() {
 
         {/* Documents */}
         <Route path="/documents" element={<DocumentManagement />} />
+
+        {/* Claims & Compensation */}
+        <Route path="/claims" element={<ClaimManagement />} />
 
         {/* Reports */}
         <Route path="/reports" element={<Reports />} />

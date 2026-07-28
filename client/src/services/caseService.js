@@ -9,7 +9,7 @@ export const caseService = {
   async getAll() {
     try {
       const res = await api.get('/cases')
-      return res.data
+      return res.data?.data || CASES
     } catch {
       return CASES
     }
