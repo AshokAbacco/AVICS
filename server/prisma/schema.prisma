@@ -16,14 +16,15 @@ enum UserStatus {
   INACTIVE
 }
 
+// Updated to match the client-provided case status list exactly.
 enum CaseStatus {
   DRAFT
   OPEN
   UNDER_INVESTIGATION
-  DOCUMENT_PENDING
+  UNDER_LEGAL_REVIEW
   CLAIM_PROCESSING
-  APPROVED
-  REJECTED
+  COMPENSATION_APPROVED
+  COMPENSATION_REJECTED
   CLOSED
 }
 
@@ -113,6 +114,16 @@ enum CaseSource {
   ADVOCATE
   ONLINE
   OTHER
+}
+
+// New: distinguishes which checklist a DocumentType belongs to.
+// CASE      -> created once per case (e.g. FIR Copy, Charge Sheet)
+// VICTIM    -> created once per victim (e.g. Aadhaar Card, Medical Bills)
+// VEHICLE   -> created once per vehicle (e.g. RC Book, Insurance Policy)
+enum DocumentCategory {
+  CASE
+  VICTIM
+  VEHICLE
 }
 
 // ======================================================
@@ -248,6 +259,25 @@ model Case {
 }
 
 // ======================================================
+// CASE SEQUENCE (atomic case number generation)
+// ======================================================
+
+// Backs generateCaseNumber(): one row per year, lastNumber incremented
+// inside the same transaction as case creation to avoid race conditions.
+// Produces numbers like MVC-2026-000001 (prefix comes from env config).
+model CaseSequence {
+  id String @id @default(cuid())
+
+  year Int @unique
+
+  lastNumber Int @default(0)
+
+  updatedAt DateTime @updatedAt
+
+  @@map("case_sequences")
+}
+
+// ======================================================
 // ACCIDENT
 // ======================================================
 
@@ -264,14 +294,17 @@ model Accident {
   taluk    String?
   village  String?
 
-  location String
+  // Made optional — not part of the client's Step 1 field list, so it
+  // shouldn't block saving the accident details step.
+  location String?
 
   latitude  Float?
   longitude Float?
 
   policeStation String
 
-  accidentType     AccidentType
+  // Made optional — same reasoning as `location`.
+  accidentType     AccidentType?
   weatherCondition WeatherCondition?
 
   description String?
@@ -318,7 +351,9 @@ model Victim {
 
   address String?
 
-  injuryType String
+  // Made optional — belongs conceptually to Medical Details (captured via
+  // MedicalDetail.injuryDetails in Step 4), not the Victim Details step.
+  injuryType String?
 
   emergencyContact String?
 
@@ -553,7 +588,9 @@ model InsuranceDetail {
 // ======================================================
 // DOCUMENT TYPE
 // ======================================================
-
+// ======================================================
+// DOCUMENT TYPE
+// ======================================================
 model DocumentType {
   id String @id @default(cuid())
 

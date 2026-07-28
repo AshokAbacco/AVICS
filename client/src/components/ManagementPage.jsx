@@ -1,3 +1,4 @@
+//client\src\components\ManagementPage.jsx
 import React, { useState, useEffect, useCallback } from 'react'
 import { useForm } from 'react-hook-form'
 import { Download, Plus, Upload } from 'lucide-react'
