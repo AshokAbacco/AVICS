@@ -7,6 +7,7 @@ import AdminLayout from '../layouts/AdminLayout.jsx'
 import Login from '../pages/Auth/Login.jsx'
 import Dashboard from '../pages/Dashboard/Dashboard.jsx'
 import CaseManagement from '../pages/Cases/CaseManagement.jsx'
+import NewCaseWizard from '../pages/Cases/NewCase/NewCaseWizard.jsx'
 import VictimManagement from '../pages/Victims/VictimManagement.jsx'
 import VehicleManagement from '../pages/Vehicles/VehicleManagement.jsx'
 import HospitalManagement from '../pages/Hospitals/HospitalManagement.jsx'
@@ -41,7 +42,7 @@ export default function AppRoutes() {
         <Route path="/login" element={<Login />} />
       </Route>
       */}
-      
+
 
       {/* Temporary redirect so /login never shows 404 */}
       <Route path="/login" element={<Navigate to="/dashboard" replace />} />
@@ -49,7 +50,14 @@ export default function AppRoutes() {
       {/* Protected/Admin Pages */}
       <Route element={<AdminLayout />}>
         <Route path="/dashboard" element={<Dashboard />} />
+
+        {/* Case Management */}
         <Route path="/cases" element={<CaseManagement />} />
+        {/* Brand new case — no caseId yet, always starts on Step 1 (Accident) */}
+        <Route path="/cases/new" element={<NewCaseWizard />} />
+        {/* Resuming a draft / editing any step of an existing case */}
+        <Route path="/cases/new/:caseId/:step" element={<NewCaseWizard />} />
+
         <Route path="/victims" element={<VictimManagement />} />
         <Route path="/vehicles" element={<VehicleManagement />} />
         <Route path="/hospitals" element={<HospitalManagement />} />
