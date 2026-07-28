@@ -8,6 +8,7 @@ import Login from '../pages/Auth/Login.jsx'
 import Dashboard from '../pages/Dashboard/Dashboard.jsx'
 import CaseManagement from '../pages/Cases/CaseManagement.jsx'
 import NewCaseWizard from '../pages/Cases/NewCase/NewCaseWizard.jsx'
+import CaseDetails from '../pages/Cases/CaseDetails/CaseDetails.jsx'
 import VictimManagement from '../pages/Victims/VictimManagement.jsx'
 import VehicleManagement from '../pages/Vehicles/VehicleManagement.jsx'
 import HospitalManagement from '../pages/Hospitals/HospitalManagement.jsx'
@@ -57,6 +58,10 @@ export default function AppRoutes() {
         <Route path="/cases/new" element={<NewCaseWizard />} />
         {/* Resuming a draft / editing any step of an existing case */}
         <Route path="/cases/new/:caseId/:step" element={<NewCaseWizard />} />
+
+        {/* Case Details — read/edit view for a submitted case, tabbed */}
+        <Route path="/cases/:id" element={<CaseDetails />} />
+        <Route path="/cases/:id/:tab" element={<CaseDetails />} />
 
         <Route path="/victims" element={<VictimManagement />} />
         <Route path="/vehicles" element={<VehicleManagement />} />
