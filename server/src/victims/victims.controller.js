@@ -42,7 +42,7 @@ export const createVictim = async (req, res) => {
       })
     }
 
-    const victim = await prisma.victim.create({
+    const victim = await prisma.Victim.create({
       data: {
         name,
         guardianRelation: guardianRelation || null,

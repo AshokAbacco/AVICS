@@ -1,10 +1,28 @@
-//client\src\pages\Cases\CaseManagement.jsx
-import React from 'react'
-import { FolderKanban, FolderOpen, CheckCircle2, Clock } from 'lucide-react'
-import ManagementPage from '../../components/ManagementPage.jsx'
-import StatusBadge from '../../components/StatusBadge.jsx'
-import { CASES, CASE_STATUS_OPTIONS } from '../../data/cases.js'
-import { formatCurrency, formatDate } from '../../utils/format.js'
+import React, { useState, useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { FolderKanban, FolderOpen, CheckCircle2, Clock, Plus } from 'lucide-react'
+import PageHeader from '../../components/PageHeader.jsx'
+import StatCard from '../../components/StatCard.jsx'
+import SearchBar from '../../components/SearchBar.jsx'
+import FilterBar from '../../components/FilterBar.jsx'
+import DataTable from '../../components/DataTable.jsx'
+import Button from '../../components/Button.jsx'
+import CaseStatusBadge from '../../components/CaseStatusBadge/CaseStatusBadge.jsx'
+import { CASE_STATUS_OPTIONS } from '../../constants/caseStatus.js'
+import { getCases, deleteCase } from './services/caseWizardService.js'
+
+function formatDate(value) {
+  if (!value) return '—'
+  return new Date(value).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+// A draft still belongs in the wizard — send it back to resume there, not
+// to the (not-yet-built) read-only Case Details page.
+function getViewPath(caseRecord) {
+  return caseRecord.status === 'DRAFT'
+    ? `/cases/new/${caseRecord.id}/accident`
+    : `/cases/${caseRecord.id}`
+}
 
 const columns = [
   { key: 'caseNumber', label: 'Case No.', render: (row) => <span className="font-medium text-primary">{row.caseNumber}</span> },
