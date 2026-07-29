@@ -25,6 +25,13 @@ import { exportToCSV } from '../utils/table.js'
  * as before -- local-only state seeded from `initialData`. This means every
  * other module (Cases, Vehicles, Hospitals, etc.) that hasn't been wired to
  * a backend yet keeps working unchanged.
+ *
+ * onDataChange (optional): called with the current `items` array every time
+ * it changes (after fetch, create, update, or delete). Lets a parent page
+ * compute live stat-card numbers (e.g. "Active users") from real data
+ * without needing a second fetch, since ManagementPage owns `items`
+ * internally and previously never exposed it upward. Purely additive --
+ * existing callers that don't pass it are unaffected.
  */
 export default function ManagementPage({
   title,
@@ -44,6 +51,7 @@ export default function ManagementPage({
   onCreate,  // async (data) => createdItem
   onUpdate,  // async (id, data) => updatedItem
   onDelete,  // async (id) => void
+  onDataChange, // optional (items[]) => void
 }) {
   const [items, setItems] = useState(initialData)
   const [loading, setLoading] = useState(!!onFetch)
@@ -64,6 +72,12 @@ export default function ManagementPage({
   const [selectedRow, setSelectedRow] = useState(null)
   const [editingRow, setEditingRow] = useState(null)
   const { register, handleSubmit, reset } = useForm()
+
+  // Keep the parent in sync with the current items list, whenever it changes.
+  useEffect(() => {
+    onDataChange?.(items)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items])
 
   const loadData = useCallback(async () => {
     if (!onFetch) return
@@ -101,22 +115,6 @@ export default function ManagementPage({
     viewModal.open()
   }
 
-  // const handleDelete = async (row) => {
-  //   if (!window.confirm(`Delete record ${row.id}? This action cannot be undone.`)) return
-
-  //   if (onDelete) {
-  //     try {
-  //       await onDelete(row.id)
-  //       setItems((prev) => prev.filter((item) => item.id !== row.id))
-  //     } catch (err) {
-  //       window.alert(err.message || 'Failed to delete record.')
-  //     }
-  //     return
-  //   }
-
-  //   setItems((prev) => prev.filter((item) => item.id !== row.id))
-  // }
-  
   const handleDelete = (row) => {
     setDeleteModal({
       open: true,

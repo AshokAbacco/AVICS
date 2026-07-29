@@ -36,7 +36,7 @@ export default function AdminLayout() {
 
       <div
         className={`flex min-h-screen flex-col transition-all duration-200 ${
-          sidebarOpen ? 'lg:ml-64' : 'lg:ml-[76px]'
+          sidebarOpen ? 'lg:ml-72' : 'lg:ml-20'
         }`}
       >
         <Header />
