@@ -1,3 +1,4 @@
+//client\src\pages\Cases\NewCase\WizardHeader.jsx
 import React from 'react'
 import { Check, X } from 'lucide-react'
 import { CASE_STEPS } from '../../../constants/caseSteps.js'

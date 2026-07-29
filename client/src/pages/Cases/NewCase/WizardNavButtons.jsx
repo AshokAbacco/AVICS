@@ -1,3 +1,4 @@
+//client\src\pages\Cases\NewCase\WizardNavButtons.jsx
 import React from 'react'
 import { ChevronLeft, ChevronRight, Send } from 'lucide-react'
 import Button from '../../../components/Button.jsx'

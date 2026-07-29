@@ -1,3 +1,4 @@
+//client\src\pages\Cases\NewCase\steps\Step7Documents.jsx
 import React, { useEffect, useRef, useState } from 'react'
 import { Upload, Download, CheckCircle2, XCircle } from 'lucide-react'
 import Select from '../../../../components/Select.jsx'

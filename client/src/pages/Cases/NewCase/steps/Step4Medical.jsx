@@ -1,3 +1,4 @@
+//client\src\pages\Cases\NewCase\steps\Step4Medical.jsx
 import React, { useEffect, useState } from 'react'
 import { HeartPulse, Pencil } from 'lucide-react'
 import Button from '../../../../components/Button.jsx'

@@ -1,3 +1,4 @@
+//client\src\pages\Cases\CaseManagement.jsx
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FolderKanban, FolderOpen, CheckCircle2, Clock, Plus } from 'lucide-react'

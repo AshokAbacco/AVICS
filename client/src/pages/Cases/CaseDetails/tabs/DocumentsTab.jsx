@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Upload, Download, CheckCircle2, XCircle } from 'lucide-react'
+import { FileStack, Upload, Download, CheckCircle2, XCircle, FileText } from 'lucide-react'
 import Select from '../../../../components/Select.jsx'
 import {
   listDocuments, uploadDocument, replaceDocument, getDocumentDownloadUrl, verifyDocument,
@@ -56,13 +56,24 @@ function DocumentRow({ doc, onUploaded }) {
   }
 
   return (
-    <tr className="border-b border-border last:border-0">
-      <td className="py-3 pr-3 text-sm text-slate-700">{doc.documentType?.name}</td>
+    <tr className="border-b border-border last:border-0 hover:bg-slate-50/60">
+      <td className="py-3 pr-3">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-400 ring-1 ring-slate-100">
+            <FileText size={14} />
+          </div>
+          <span className="text-sm font-medium text-slate-700">{doc.documentType?.name}</span>
+        </div>
+      </td>
       <td className="py-3 pr-3 text-sm">
         {doc.received ? (
-          <span className="inline-flex items-center gap-1 text-emerald-600"><CheckCircle2 size={14} /> Yes</span>
+          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-600 ring-1 ring-emerald-100">
+            <CheckCircle2 size={12} /> Received
+          </span>
         ) : (
-          <span className="inline-flex items-center gap-1 text-slate-400"><XCircle size={14} /> No</span>
+          <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500 ring-1 ring-slate-200">
+            <XCircle size={12} /> Pending
+          </span>
         )}
       </td>
       <td className="py-3 pr-3 text-sm text-slate-500">{formatDate(doc.receivedDate)}</td>
@@ -71,7 +82,7 @@ function DocumentRow({ doc, onUploaded }) {
       </td>
       <td className="py-3 pr-3">
         <div className="flex items-center gap-1">
-          <label className={`cursor-pointer rounded-lg p-2 text-slate-400 hover:bg-primary-50 hover:text-primary ${busy ? 'pointer-events-none opacity-50' : ''}`}>
+          <label className={`cursor-pointer rounded-lg p-2 text-slate-400 hover:bg-primary/10 hover:text-primary ${busy ? 'pointer-events-none opacity-50' : ''}`}>
             <Upload size={16} />
             <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileSelected} accept=".pdf,.jpg,.jpeg,.png" />
           </label>
@@ -87,29 +98,43 @@ function DocumentRow({ doc, onUploaded }) {
 }
 
 function DocumentTable({ title, documents, onUploaded }) {
+  const receivedCount = documents.filter((d) => d.received).length
   return (
-    <div className="card mb-4 p-4 sm:p-6">
-      <h4 className="mb-4 text-sm font-semibold text-slate-700">{title} ({documents.length})</h4>
-      {documents.length === 0 ? (
-        <p className="text-sm text-slate-400">No documents in this checklist yet.</p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[560px] text-left">
-            <thead>
-              <tr className="border-b border-border text-xs uppercase text-slate-400">
-                <th className="pb-2 pr-3 font-medium">Document</th>
-                <th className="pb-2 pr-3 font-medium">Received</th>
-                <th className="pb-2 pr-3 font-medium">Received Date</th>
-                <th className="pb-2 pr-3 font-medium">Verified</th>
-                <th className="pb-2 pr-3 font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {documents.map((doc) => <DocumentRow key={doc.id} doc={doc} onUploaded={onUploaded} />)}
-            </tbody>
-          </table>
+    <div className="card mb-4 overflow-hidden">
+      <div className="flex items-center justify-between gap-3 border-b border-border bg-slate-50/60 px-4 py-4 sm:px-6">
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <FileStack size={20} />
+          </div>
+          <div>
+            <h4 className="text-base font-semibold text-slate-800">{title}</h4>
+            <p className="text-xs text-slate-400">{receivedCount} of {documents.length} received</p>
+          </div>
         </div>
-      )}
+      </div>
+
+      <div className="px-4 py-4 sm:px-6 sm:py-5">
+        {documents.length === 0 ? (
+          <p className="text-sm italic text-slate-300">No documents in this checklist yet.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[560px] text-left">
+              <thead>
+                <tr className="border-b border-border text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                  <th className="pb-2 pr-3">Document</th>
+                  <th className="pb-2 pr-3">Received</th>
+                  <th className="pb-2 pr-3">Received Date</th>
+                  <th className="pb-2 pr-3">Verified</th>
+                  <th className="pb-2 pr-3">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {documents.map((doc) => <DocumentRow key={doc.id} doc={doc} onUploaded={onUploaded} />)}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
