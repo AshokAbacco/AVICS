@@ -1,7 +1,6 @@
-//server\src\case-management\controllers\document.controller.js
 import {
-  listDocumentsForCase, uploadDocumentFile, replaceDocumentFile,
-  getDocumentDownloadUrl, verifyDocument,
+  listDocumentsForCase, listAllDocuments, uploadDocumentFile, replaceDocumentFile,
+  getDocumentDownloadUrl, verifyDocument, getDocumentById,
 } from '../services/document.service.js'
 
 // GET /api/cases/:caseId/documents
@@ -10,6 +9,30 @@ export const listDocuments = async (req, res, next) => {
     const documents = await listDocumentsForCase(req.params.caseId)
     return res.status(200).json({ success: true, data: documents })
   } catch (err) {
+    next(err)
+  }
+}
+
+// GET /api/documents?caseNumber=&category=&verified=&page=&limit=
+// Global, cross-case document browser — backs the Document Management page.
+export const listAllDocumentsController = async (req, res, next) => {
+  try {
+    const { caseNumber, category, verified, page, limit } = req.query
+    const result = await listAllDocuments({ caseNumber, category, verified, page, limit })
+    return res.status(200).json({ success: true, data: result })
+  } catch (err) {
+    next(err)
+  }
+}
+
+// GET /api/documents/:documentId
+// Global, single-document lookup — backs the standalone document viewer page.
+export const getDocumentByIdController = async (req, res, next) => {
+  try {
+    const document = await getDocumentById(req.params.documentId)
+    return res.status(200).json({ success: true, data: document })
+  } catch (err) {
+    if (err.statusCode) return res.status(err.statusCode).json({ success: false, message: err.message })
     next(err)
   }
 }
@@ -51,6 +74,7 @@ export const replaceDocument = async (req, res, next) => {
 }
 
 // GET /api/cases/:caseId/documents/:documentId/download
+// GET /api/documents/:documentId/download  (global alias — doesn't use caseId)
 // Returns a short-lived pre-signed URL — the bucket itself stays private.
 export const downloadDocument = async (req, res, next) => {
   try {
@@ -63,6 +87,7 @@ export const downloadDocument = async (req, res, next) => {
 }
 
 // PUT /api/cases/:caseId/documents/:documentId/verify
+// PUT /api/documents/:documentId/verify  (global alias — doesn't use caseId)
 export const verifyDocumentStatus = async (req, res, next) => {
   try {
     const userId = req.user?.id
@@ -71,6 +96,9 @@ export const verifyDocumentStatus = async (req, res, next) => {
     const { status, remarks } = req.body
     if (!['PENDING', 'VERIFIED', 'REJECTED'].includes(status)) {
       return res.status(400).json({ success: false, message: 'status must be PENDING, VERIFIED, or REJECTED.' })
+    }
+    if (status === 'REJECTED' && !remarks?.trim()) {
+      return res.status(400).json({ success: false, message: 'A reason is required when rejecting a document.' })
     }
 
     const document = await verifyDocument({

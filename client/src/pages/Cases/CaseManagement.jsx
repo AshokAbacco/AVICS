@@ -1,7 +1,7 @@
 //client\src\pages\Cases\CaseManagement.jsx
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FolderKanban, FolderOpen, CheckCircle2, Clock, Plus } from 'lucide-react'
+import { FolderKanban, FolderOpen, CheckCircle2, Clock, Plus, FileStack } from 'lucide-react'
 import PageHeader from '../../components/PageHeader.jsx'
 import StatCard from '../../components/StatCard.jsx'
 import SearchBar from '../../components/SearchBar.jsx'
@@ -11,6 +11,7 @@ import Button from '../../components/Button.jsx'
 import CaseStatusBadge from '../../components/CaseStatusBadge/CaseStatusBadge.jsx'
 import { CASE_STATUS_OPTIONS } from '../../constants/caseStatus.js'
 import { getCases, deleteCase } from './services/caseWizardService.js'
+import DocumentTypesModal from './DocumentTypesModal.jsx'
 
 function formatDate(value) {
   if (!value) return '—'
@@ -49,6 +50,7 @@ export default function CaseManagement() {
   const [filterLabel, setFilterLabel] = useState('All')
   const [loading, setLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState('')
+  const [docTypesModalOpen, setDocTypesModalOpen] = useState(false)
 
   const fetchCases = useCallback((page = 1) => {
     setLoading(true)
@@ -94,9 +96,14 @@ export default function CaseManagement() {
         subtitle="Track and manage all motor accident claim cases."
         breadcrumbItems={[{ label: 'Cases' }]}
         actions={
-          <Button icon={Plus} onClick={() => navigate('/cases/new')}>
-            Add Case
-          </Button>
+          <>
+            <Button variant="outline" icon={FileStack} onClick={() => setDocTypesModalOpen(true)}>
+              Add Document Types
+            </Button>
+            <Button icon={Plus} onClick={() => navigate('/cases/new')}>
+              Add Case
+            </Button>
+          </>
         }
       />
 
@@ -132,6 +139,8 @@ export default function CaseManagement() {
         emptyTitle="No cases found"
         emptyDescription="Try a different search term or filter, or add a new case to get started."
       />
+
+      <DocumentTypesModal isOpen={docTypesModalOpen} onClose={() => setDocTypesModalOpen(false)} />
     </div>
   )
 }

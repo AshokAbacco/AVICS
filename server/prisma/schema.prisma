@@ -129,6 +129,33 @@ enum DocumentCategory {
   VEHICLE
 }
 
+enum ClaimStatus {
+  PENDING
+  UNDER_REVIEW
+  APPROVED
+  PARTIALLY_APPROVED
+  REJECTED
+  CLOSED
+}
+
+enum PaymentStatus {
+  UNPAID
+  PROCESSING
+  PAID
+  PARTIALLY_PAID
+  PENDING
+}
+
+enum ClaimType {
+  VEHICLE_DAMAGE
+  MEDICAL
+  DEATH
+  DISABILITY
+  PROPERTY_DAMAGE
+  THIRD_PARTY
+  OTHER
+}
+
 // ======================================================
 // USER
 // ======================================================
@@ -381,6 +408,9 @@ model Victim {
 
   documents Document[]
 
+  // Claims filed on this victim's behalf (medical / death / disability, etc.)
+  claims Claim[]
+
   @@index([caseId])
   @@index([name])
   @@index([mobile])
@@ -425,6 +455,9 @@ model Vehicle {
   insuranceDetails InsuranceDetail[]
 
   documents Document[]
+
+  // Claims filed against this vehicle (vehicle damage / property damage, etc.)
+  claims Claim[]
 
   @@index([caseId])
   @@map("vehicles")
@@ -588,9 +621,6 @@ model InsuranceDetail {
   @@map("insurance_details")
 }
 
-// ======================================================
-// DOCUMENT TYPE
-// ======================================================
 // ======================================================
 // DOCUMENT TYPE
 // ======================================================
@@ -883,45 +913,34 @@ model CaseStatusHistory {
 // CLAIM
 // ======================================================
 
-enum ClaimStatus {
-  PENDING
-  UNDER_REVIEW
-  APPROVED
-  PARTIALLY_APPROVED
-  REJECTED
-  CLOSED
-}
-
-enum PaymentStatus {
-  UNPAID
-  PROCESSING
-  PAID
-  PARTIALLY_PAID
-  PENDING
-}
-
-enum ClaimType {
-  VEHICLE_DAMAGE
-  MEDICAL
-  DEATH
-  DISABILITY
-  PROPERTY_DAMAGE
-  THIRD_PARTY
-  OTHER
-}
-
 model Claim {
   id String @id @default(cuid())
 
-  // Relation
+  // Relation to the parent case
   caseId String
   case   Case   @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  // Who/what this claim is actually filed for. Exactly one of these is
+  // expected to be set for victim-type claims (MEDICAL/DEATH/DISABILITY)
+  // or vehicle-type claims (VEHICLE_DAMAGE/PROPERTY_DAMAGE); both may be
+  // null for case-level claims (e.g. THIRD_PARTY/OTHER) that aren't tied
+  // to one specific victim or vehicle. onDelete: SetNull so removing the
+  // victim/vehicle unlinks the claim instead of deleting it.
+  victimId String?
+  victim   Victim? @relation(fields: [victimId], references: [id], onDelete: SetNull)
+
+  vehicleId String?
+  vehicle   Vehicle? @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
 
   // Claim Information
   claimNumber String @unique
 
   policyNumber String?
 
+  // Denormalized snapshot of the claimant's name at filing time (kept even
+  // if the linked victim/vehicle record changes later). Auto-filled from
+  // victim.name / vehicle.ownerName server-side when a link is provided
+  // and this is left blank.
   claimantName String
 
   claimType ClaimType
@@ -960,10 +979,13 @@ model Claim {
   createdByRef String?
   updatedByRef String?
 
+  // Soft Delete
   deletedAt DateTime?
   deletedBy String?
 
   @@index([caseId])
+  @@index([victimId])
+  @@index([vehicleId])
   @@index([claimNumber])
   @@index([status])
   @@index([paymentStatus])
