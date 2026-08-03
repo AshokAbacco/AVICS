@@ -1,3 +1,4 @@
+//client\src\pages\Cases\NewCase\steps\Step3vehicleinsurance.jsx
 import React, { useEffect, useState } from 'react'
 import { CarFront, Pencil, Trash2 } from 'lucide-react'
 import Button from '../../../../components/Button.jsx'

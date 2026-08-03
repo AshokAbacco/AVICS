@@ -17,6 +17,7 @@ import PoliceManagement from '../pages/Police/PoliceManagement.jsx'
 import CourtManagement from '../pages/Court/CourtManagement.jsx'
 import AdvocateManagement from '../pages/Advocates/AdvocateManagement.jsx'
 import DocumentManagement from '../pages/Documents/DocumentManagement.jsx'
+import DocumentViewerPage from '../pages/Documents/DocumentViewerModal.jsx'
 import ClaimManagement from '../pages/Claims/ClaimManagement.jsx'
 import Reports from '../pages/Reports/Reports.jsx'
 import UserManagement from '../pages/Users/UserManagement.jsx'
@@ -66,8 +67,10 @@ export default function AppRoutes() {
         <Route path="/police" element={<PoliceManagement />} />
         <Route path="/court" element={<CourtManagement />} />
         <Route path="/advocates" element={<AdvocateManagement />} />
+
         {/* Documents */}
         <Route path="/documents" element={<DocumentManagement />} />
+        <Route path="/documents/:documentId" element={<DocumentViewerPage />} />
 
         {/* Claims & Compensation */}
         <Route path="/claims" element={<ClaimManagement />} />

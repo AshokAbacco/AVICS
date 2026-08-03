@@ -82,6 +82,15 @@ export const deleteUser = async (req, res, next) => {
     if (err.code === 'P2025') {
       return res.status(404).json({ success: false, message: 'User not found' })
     }
+    // User model has no soft-delete, and Case.createdById / assignedOfficerId
+    // are live foreign keys with no cascade rule — deleting a user who
+    // created or is assigned to any case violates that constraint.
+    if (err.code === 'P2003') {
+      return res.status(409).json({
+        success: false,
+        message: 'This user has cases assigned or created and cannot be deleted. Set their status to Inactive instead.',
+      })
+    }
     next(err)
   }
 }

@@ -1,3 +1,4 @@
+//client\src\pages\Cases\NewCase\steps\Step8ReviewSubmit.jsx
 import React, { useEffect, useState } from 'react'
 import { Pencil } from 'lucide-react'
 import WizardNavButtons from '../WizardNavButtons.jsx'

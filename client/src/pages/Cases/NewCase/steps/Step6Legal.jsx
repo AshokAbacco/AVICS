@@ -1,3 +1,4 @@
+//client\src\pages\Cases\NewCase\steps\Step6Legal.jsx
 import React, { useEffect, useState } from 'react'
 import Input from '../../../../components/Input.jsx'
 import Select from '../../../../components/Select.jsx'

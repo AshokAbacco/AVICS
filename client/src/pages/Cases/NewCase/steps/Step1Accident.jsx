@@ -1,3 +1,4 @@
+//client\src\pages\Cases\NewCase\steps\Step1Accident.jsx
 import React, { useEffect, useState } from 'react'
 import Button from '../../../../components/Button.jsx'
 import Input from '../../../../components/Input.jsx'

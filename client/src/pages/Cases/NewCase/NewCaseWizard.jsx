@@ -1,3 +1,4 @@
+//client\src\pages\Cases\NewCase\NewCaseWizard.jsx
 import React, { useEffect, useState } from 'react'
 import useCaseWizard from '../hooks/useCaseWizard.js'
 import { getCaseById } from '../services/caseWizardService.js'

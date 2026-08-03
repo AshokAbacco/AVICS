@@ -1,3 +1,4 @@
+//client\src\pages\Cases\NewCase\steps\Step2Victim.jsx
 import React, { useEffect, useState } from 'react'
 import { UserPlus, Pencil, Trash2 } from 'lucide-react'
 import Button from '../../../../components/Button.jsx'

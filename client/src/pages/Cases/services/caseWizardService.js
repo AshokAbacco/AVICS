@@ -1,3 +1,4 @@
+//client\src\pages\Cases\services\caseWizardService.js
 import api from '../../../services/api.js'
 
 // --- Step 1: Accident (also creates the Case) ---

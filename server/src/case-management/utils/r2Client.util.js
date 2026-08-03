@@ -1,4 +1,4 @@
-// Requires: npm install @aws-sdk/client-s3 @aws-sdk/s3-request-presigner
+//server\src\case-management\utils\r2Client.util.js
 import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 

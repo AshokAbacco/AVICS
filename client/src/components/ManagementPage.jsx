@@ -1,5 +1,5 @@
 //client\src\components\ManagementPage.jsx
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { Download, Plus, Upload } from 'lucide-react'
 import PageHeader from './PageHeader.jsx'
@@ -25,6 +25,24 @@ import { exportToCSV } from '../utils/table.js'
  * as before -- local-only state seeded from `initialData`. This means every
  * other module (Cases, Vehicles, Hospitals, etc.) that hasn't been wired to
  * a backend yet keeps working unchanged.
+ *
+ * onDataChange (optional): called with the current `items` array every time
+ * it changes (after fetch, create, update, or delete). Lets a parent page
+ * compute live stat-card numbers (e.g. "Active users") from real data
+ * without needing a second fetch, since ManagementPage owns `items`
+ * internally and previously never exposed it upward. Purely additive --
+ * existing callers that don't pass it are unaffected.
+ *
+ * DEPENDENT FIELDS (optional, additive): a `select` field can declare
+ *   { name: 'victimId', type: 'select', dependsOn: 'caseId', loadOptions: async (caseId) => [...] }
+ * instead of a static `options` array. Whenever the watched `dependsOn`
+ * field's value changes, `loadOptions(value)` is called and its resolved
+ * options replace this field's option list. If `dependsOn`'s value is
+ * cleared, options reset to []. If the user changes `dependsOn` to a
+ * *different* value after the field already had options loaded (i.e. a
+ * real change, not the initial load when editing an existing row), this
+ * field's current selection is cleared, since it likely no longer applies.
+ * Fields that don't set `dependsOn`/`loadOptions` behave exactly as before.
  */
 export default function ManagementPage({
   title,
@@ -44,6 +62,7 @@ export default function ManagementPage({
   onCreate,  // async (data) => createdItem
   onUpdate,  // async (id, data) => updatedItem
   onDelete,  // async (id) => void
+  onDataChange, // optional (items[]) => void
 }) {
   const [items, setItems] = useState(initialData)
   const [loading, setLoading] = useState(!!onFetch)
@@ -63,7 +82,62 @@ export default function ManagementPage({
   const viewModal = useDisclosure()
   const [selectedRow, setSelectedRow] = useState(null)
   const [editingRow, setEditingRow] = useState(null)
-  const { register, handleSubmit, reset } = useForm()
+  const { register, handleSubmit, reset, watch, setValue } = useForm()
+
+  // Dynamic option lists for fields using dependsOn/loadOptions, keyed by
+  // field name. Static-options fields never touch this.
+  const [dynamicOptions, setDynamicOptions] = useState({})
+  const prevDepValueRef = useRef({})
+
+  const dependentFields = formFields.filter((f) => f.dependsOn && f.loadOptions)
+  // Calling watch() here (during render, not inside an effect) is the
+  // documented react-hook-form pattern for reacting to a field's value --
+  // it subscribes this component to re-render whenever that field changes.
+  const dependencyValues = dependentFields.map((f) => watch(f.dependsOn))
+
+  useEffect(() => {
+    let cancelled = false
+
+    dependentFields.forEach((field, idx) => {
+      const depValue = dependencyValues[idx]
+      const prevValue = prevDepValueRef.current[field.name]
+      const isRealChange = prevValue !== undefined && prevValue !== depValue
+
+      prevDepValueRef.current[field.name] = depValue
+
+      if (!depValue) {
+        setDynamicOptions((prev) => ({ ...prev, [field.name]: [] }))
+        return
+      }
+
+      if (isRealChange) {
+        // The parent field changed to a different value after this field
+        // already had a selection loaded against the old value -- clear it,
+        // it no longer applies (e.g. switching Case clears the old Victim).
+        setValue(field.name, '')
+      }
+
+      field
+        .loadOptions(depValue)
+        .then((opts) => {
+          if (!cancelled) setDynamicOptions((prev) => ({ ...prev, [field.name]: opts || [] }))
+        })
+        .catch(() => {
+          if (!cancelled) setDynamicOptions((prev) => ({ ...prev, [field.name]: [] }))
+        })
+    })
+
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, dependencyValues)
+
+  // Keep the parent in sync with the current items list, whenever it changes.
+  useEffect(() => {
+    onDataChange?.(items)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items])
 
   const loadData = useCallback(async () => {
     if (!onFetch) return
@@ -86,12 +160,19 @@ export default function ManagementPage({
 
   const openAddModal = () => {
     setEditingRow(null)
+    prevDepValueRef.current = {}
+    setDynamicOptions({})
     reset({})
     addModal.open()
   }
 
   const openEditModal = (row) => {
     setEditingRow(row)
+    // Reset tracked previous dependency values so the initial load for this
+    // row's existing caseId doesn't get treated as a "real change" that
+    // wipes the row's own victimId/vehicleId selection.
+    prevDepValueRef.current = {}
+    setDynamicOptions({})
     reset(row)
     addModal.open()
   }
@@ -101,22 +182,6 @@ export default function ManagementPage({
     viewModal.open()
   }
 
-  // const handleDelete = async (row) => {
-  //   if (!window.confirm(`Delete record ${row.id}? This action cannot be undone.`)) return
-
-  //   if (onDelete) {
-  //     try {
-  //       await onDelete(row.id)
-  //       setItems((prev) => prev.filter((item) => item.id !== row.id))
-  //     } catch (err) {
-  //       window.alert(err.message || 'Failed to delete record.')
-  //     }
-  //     return
-  //   }
-
-  //   setItems((prev) => prev.filter((item) => item.id !== row.id))
-  // }
-  
   const handleDelete = (row) => {
     setDeleteModal({
       open: true,
@@ -326,39 +391,47 @@ export default function ManagementPage({
         }
       >
         <form className="grid grid-cols-1 gap-4 sm:grid-cols-2" onSubmit={handleSubmit(onSubmit)}>
-          {formFields.map((field) => (
-            <div key={field.name} className={field.fullWidth ? 'sm:col-span-2' : ''}>
-              {field.type === 'select' ? (
-                <label className="block">
-                  <span className="mb-1.5 block text-sm font-medium text-slate-600">{field.label}</span>
-                  <select className="input-base" {...register(field.name)}>
-                    {field.options.map((opt) => {
-                      const optionValue = typeof opt === 'string' ? opt : opt.value
-                      const optionLabel = typeof opt === 'string' ? opt : opt.label
-                      return (
-                        <option key={optionValue} value={optionValue}>
-                          {optionLabel}
-                        </option>
-                      )
-                    })}
-                  </select>
-                </label>
-              ) : (
-                <Input
-                  label={field.label}
-                  type={field.type || 'text'}
-                  {...register(
-                    field.name,
-                    field.type === 'number'
-                      ? {
-                        setValueAs: (v) => (v === '' || v === null || v === undefined ? '' : Number(v)),
-                      }
-                      : {}
-                  )}
-                />
-              )}
-            </div>
-          ))}
+          {formFields.map((field) => {
+            const isDependent = field.dependsOn && field.loadOptions
+            const effectiveOptions = isDependent ? (dynamicOptions[field.name] || []) : field.options
+
+            return (
+              <div key={field.name} className={field.fullWidth ? 'sm:col-span-2' : ''}>
+                {field.type === 'select' ? (
+                  <label className="block">
+                    <span className="mb-1.5 block text-sm font-medium text-slate-600">{field.label}</span>
+                    <select className="input-base" {...register(field.name)}>
+                      {(isDependent || field.placeholder) && field.placeholder !== false && (
+                        <option value="">{typeof field.placeholder === 'string' ? field.placeholder : '-- Select --'}</option>
+                      )}
+                      {effectiveOptions.map((opt) => {
+                        const optionValue = typeof opt === 'string' ? opt : opt.value
+                        const optionLabel = typeof opt === 'string' ? opt : opt.label
+                        return (
+                          <option key={optionValue} value={optionValue}>
+                            {optionLabel}
+                          </option>
+                        )
+                      })}
+                    </select>
+                  </label>
+                ) : (
+                  <Input
+                    label={field.label}
+                    type={field.type || 'text'}
+                    {...register(
+                      field.name,
+                      field.type === 'number'
+                        ? {
+                          setValueAs: (v) => (v === '' || v === null || v === undefined ? '' : Number(v)),
+                        }
+                        : {}
+                    )}
+                  />
+                )}
+              </div>
+            )
+          })}
         </form>
       </Modal>
 
