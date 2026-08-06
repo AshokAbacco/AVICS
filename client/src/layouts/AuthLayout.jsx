@@ -6,7 +6,7 @@ import { APP_FULL_NAME } from '../constants/theme.js'
 export default function AuthLayout() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary-700 via-primary to-secondary p-4">
-      <div className="grid w-full max-w-4xl overflow-hidden rounded-2xl bg-white shadow-elevated md:grid-cols-2">
+      <div className="grid w-full max-w-6xl min-h-6xl overflow-hidden rounded-2xl bg-white shadow-elevated md:grid-cols-2">
         <div className="hidden flex-col justify-between bg-primary-700 p-10 text-white md:flex">
           <div className="flex items-center gap-2.5">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15">

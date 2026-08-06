@@ -31,17 +31,18 @@ export default function Login() {
       <form className="mt-8 space-y-5" onSubmit={handleSubmit(onSubmit)}>
         <Input
           label="Email address"
-          icon={Mail}
+         
           type="email"
-          placeholder="you@avics.gov.in"
+          placeholder="gmail.com"
           error={errors.email?.message}
           {...register('email')}
+           
         />
 
         <label className="block">
           <span className="mb-1.5 block text-sm font-medium text-slate-600">Password</span>
           <div className="relative">
-            <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            {/* <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" /> */}
             <input
               type={showPassword ? 'text' : 'password'}
               placeholder="••••••••"
