@@ -1,4 +1,5 @@
-import React, { useState } from 'react'
+//client\src\components\ManagementPage.jsx
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { Download, Plus, Upload } from 'lucide-react'
 import PageHeader from './PageHeader.jsx'
@@ -18,12 +19,36 @@ import { exportToCSV } from '../utils/table.js'
  * across every module: header, breadcrumb, stat cards, search, filter,
  * table, pagination, add/edit/view/delete actions, export & import, and a
  * professional empty state (handled inside DataTable).
+ *
+ * API integration is OPTIONAL. Pass onFetch/onCreate/onUpdate/onDelete to
+ * hook this page up to a real backend. If omitted, the page behaves exactly
+ * as before -- local-only state seeded from `initialData`. This means every
+ * other module (Cases, Vehicles, Hospitals, etc.) that hasn't been wired to
+ * a backend yet keeps working unchanged.
+ *
+ * onDataChange (optional): called with the current `items` array every time
+ * it changes (after fetch, create, update, or delete). Lets a parent page
+ * compute live stat-card numbers (e.g. "Active users") from real data
+ * without needing a second fetch, since ManagementPage owns `items`
+ * internally and previously never exposed it upward. Purely additive --
+ * existing callers that don't pass it are unaffected.
+ *
+ * DEPENDENT FIELDS (optional, additive): a `select` field can declare
+ *   { name: 'victimId', type: 'select', dependsOn: 'caseId', loadOptions: async (caseId) => [...] }
+ * instead of a static `options` array. Whenever the watched `dependsOn`
+ * field's value changes, `loadOptions(value)` is called and its resolved
+ * options replace this field's option list. If `dependsOn`'s value is
+ * cleared, options reset to []. If the user changes `dependsOn` to a
+ * *different* value after the field already had options loaded (i.e. a
+ * real change, not the initial load when editing an existing row), this
+ * field's current selection is cleared, since it likely no longer applies.
+ * Fields that don't set `dependsOn`/`loadOptions` behave exactly as before.
  */
 export default function ManagementPage({
   title,
   subtitle,
   breadcrumbLabel,
-  initialData,
+  initialData = [],
   columns,
   formFields,
   searchKeys,
@@ -32,8 +57,22 @@ export default function ManagementPage({
   filterLabel = 'Status',
   stats = [],
   idPrefix = 'REC',
+  // Optional async API handlers
+  onFetch,   // async () => items[]
+  onCreate,  // async (data) => createdItem
+  onUpdate,  // async (id, data) => updatedItem
+  onDelete,  // async (id) => void
+  onDataChange, // optional (items[]) => void
 }) {
   const [items, setItems] = useState(initialData)
+  const [loading, setLoading] = useState(!!onFetch)
+  const [submitting, setSubmitting] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
+  const [deleteModal, setDeleteModal] = useState({
+    open: false,
+    row: null,
+  });
+
   const { search, setSearch, filterValue, setFilterValue, page, setPage, totalPages, paginated } = useTableData(
     items,
     { searchKeys, filterField, pageSize: 6 }
@@ -43,16 +82,97 @@ export default function ManagementPage({
   const viewModal = useDisclosure()
   const [selectedRow, setSelectedRow] = useState(null)
   const [editingRow, setEditingRow] = useState(null)
-  const { register, handleSubmit, reset } = useForm()
+  const { register, handleSubmit, reset, watch, setValue } = useForm()
+
+  // Dynamic option lists for fields using dependsOn/loadOptions, keyed by
+  // field name. Static-options fields never touch this.
+  const [dynamicOptions, setDynamicOptions] = useState({})
+  const prevDepValueRef = useRef({})
+
+  const dependentFields = formFields.filter((f) => f.dependsOn && f.loadOptions)
+  // Calling watch() here (during render, not inside an effect) is the
+  // documented react-hook-form pattern for reacting to a field's value --
+  // it subscribes this component to re-render whenever that field changes.
+  const dependencyValues = dependentFields.map((f) => watch(f.dependsOn))
+
+  useEffect(() => {
+    let cancelled = false
+
+    dependentFields.forEach((field, idx) => {
+      const depValue = dependencyValues[idx]
+      const prevValue = prevDepValueRef.current[field.name]
+      const isRealChange = prevValue !== undefined && prevValue !== depValue
+
+      prevDepValueRef.current[field.name] = depValue
+
+      if (!depValue) {
+        setDynamicOptions((prev) => ({ ...prev, [field.name]: [] }))
+        return
+      }
+
+      if (isRealChange) {
+        // The parent field changed to a different value after this field
+        // already had a selection loaded against the old value -- clear it,
+        // it no longer applies (e.g. switching Case clears the old Victim).
+        setValue(field.name, '')
+      }
+
+      field
+        .loadOptions(depValue)
+        .then((opts) => {
+          if (!cancelled) setDynamicOptions((prev) => ({ ...prev, [field.name]: opts || [] }))
+        })
+        .catch(() => {
+          if (!cancelled) setDynamicOptions((prev) => ({ ...prev, [field.name]: [] }))
+        })
+    })
+
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, dependencyValues)
+
+  // Keep the parent in sync with the current items list, whenever it changes.
+  useEffect(() => {
+    onDataChange?.(items)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items])
+
+  const loadData = useCallback(async () => {
+    if (!onFetch) return
+    setLoading(true)
+    setErrorMsg('')
+    try {
+      const data = await onFetch()
+      setItems(data || [])
+    } catch (err) {
+      setErrorMsg(err.message || 'Failed to load records.')
+    } finally {
+      setLoading(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
 
   const openAddModal = () => {
     setEditingRow(null)
+    prevDepValueRef.current = {}
+    setDynamicOptions({})
     reset({})
     addModal.open()
   }
 
   const openEditModal = (row) => {
     setEditingRow(row)
+    // Reset tracked previous dependency values so the initial load for this
+    // row's existing caseId doesn't get treated as a "real change" that
+    // wipes the row's own victimId/vehicleId selection.
+    prevDepValueRef.current = {}
+    setDynamicOptions({})
     reset(row)
     addModal.open()
   }
@@ -63,19 +183,66 @@ export default function ManagementPage({
   }
 
   const handleDelete = (row) => {
-    if (window.confirm(`Delete record ${row.id}? This action cannot be undone.`)) {
-      setItems((prev) => prev.filter((item) => item.id !== row.id))
-    }
-  }
+    setDeleteModal({
+      open: true,
+      row,
+    });
+  };
+  const confirmDelete = async () => {
+    const row = deleteModal.row;
 
-  const onSubmit = (data) => {
-    if (editingRow) {
-      setItems((prev) => prev.map((item) => (item.id === editingRow.id ? { ...item, ...data } : item)))
-    } else {
-      const newId = `${idPrefix}-${Math.floor(1000 + Math.random() * 9000)}`
-      setItems((prev) => [{ ...data, id: newId }, ...prev])
+    if (!row) return;
+
+    try {
+      if (onDelete) {
+        await onDelete(row.id);
+      }
+
+      setItems((prev) => prev.filter((item) => item.id !== row.id));
+
+      setDeleteModal({
+        open: false,
+        row: null,
+      });
+    } catch (err) {
+      alert(err.message || "Failed to delete record.");
     }
-    addModal.close()
+  };
+
+  const cancelDelete = () => {
+    setDeleteModal({
+      open: false,
+      row: null,
+    });
+  };
+
+  const onSubmit = async (data) => {
+    setSubmitting(true)
+    try {
+      if (editingRow) {
+        if (onUpdate) {
+          const updated = await onUpdate(editingRow.id, data)
+          setItems((prev) =>
+            prev.map((item) => (item.id === editingRow.id ? { ...item, ...(updated || data) } : item))
+          )
+        } else {
+          setItems((prev) => prev.map((item) => (item.id === editingRow.id ? { ...item, ...data } : item)))
+        }
+      } else {
+        if (onCreate) {
+          const created = await onCreate(data)
+          setItems((prev) => [created || { ...data, id: `${idPrefix}-${Date.now()}` }, ...prev])
+        } else {
+          const newId = `${idPrefix}-${Math.floor(1000 + Math.random() * 9000)}`
+          setItems((prev) => [{ ...data, id: newId }, ...prev])
+        }
+      }
+      addModal.close()
+    } catch (err) {
+      window.alert(err.message || 'Failed to save record.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const handleImportClick = () => {
@@ -107,20 +274,92 @@ export default function ManagementPage({
         }
       />
 
+      {errorMsg && (
+        <div className="px-4 py-3 mb-4 text-sm border border-red-200 rounded-xl bg-red-50 text-danger">
+          {errorMsg}
+        </div>
+      )}
+
       {stats.length > 0 && (
-        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 mb-6 sm:grid-cols-2 xl:grid-cols-4">
           {stats.map((stat, idx) => (
             <StatCard key={stat.label} {...stat} delay={idx * 0.05} />
           ))}
         </div>
       )}
 
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:items-center sm:justify-between">
         <SearchBar value={search} onChange={setSearch} placeholder={`Search ${breadcrumbLabel.toLowerCase()}...`} />
         {filterField && (
           <FilterBar value={filterValue} onChange={setFilterValue} options={filterOptions} label={filterLabel} />
         )}
       </div>
+      {/* delete Claim with model */}
+      {deleteModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="w-full max-w-[340px] sm:max-w-[380px] rounded-xl bg-white dark:bg-gray-900 shadow-xl overflow-hidden">
+
+            {/* Header */}
+            <div className="flex flex-col items-center pt-5">
+              <div className="flex items-center justify-center bg-red-100 rounded-full h-14 w-14 dark:bg-red-900/30">
+                <svg
+                  className="text-red-600 h-7 w-7"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 9v4m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z"
+                  />
+                </svg>
+              </div>
+
+              <h2 className="mt-3 text-lg font-bold text-gray-800 dark:text-white">
+                Delete Record?
+              </h2>
+            </div>
+
+            {/* Body */}
+            <div className="px-5 py-3 text-center">
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                Are you sure you want to delete
+              </p>
+
+              <p className="mt-2 text-base font-semibold text-red-600 break-all">
+                {deleteModal.row?.claimNumber ||
+                  deleteModal.row?.caseNumber ||
+                  deleteModal.row?.name ||
+                  deleteModal.row?.id}
+              </p>
+
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                This action cannot be undone.
+              </p>
+            </div>
+
+            {/* Footer */}
+            <div className="flex gap-2 p-4 border-t border-gray-200 dark:border-gray-700">
+              <button
+                onClick={cancelDelete}
+                className="flex-1 py-2 text-sm font-medium text-gray-700 transition border border-gray-300 rounded-lg dark:border-gray-600 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={confirmDelete}
+                className="flex-1 py-2 text-sm font-medium text-white transition bg-red-600 rounded-lg hover:bg-red-700"
+              >
+                Delete
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
 
       <DataTable
         columns={columns}
@@ -131,6 +370,7 @@ export default function ManagementPage({
         onView={openViewModal}
         onEdit={openEditModal}
         onDelete={handleDelete}
+        loading={loading}
         emptyTitle={`No ${breadcrumbLabel.toLowerCase()} found`}
         emptyDescription="Try a different search term or filter, or add a new record to get started."
       />
@@ -141,30 +381,57 @@ export default function ManagementPage({
         title={editingRow ? `Edit ${breadcrumbLabel.replace(/s$/, '')}` : `Add ${breadcrumbLabel.replace(/s$/, '')}`}
         footer={
           <>
-            <Button variant="outline" onClick={addModal.close}>Cancel</Button>
-            <Button onClick={handleSubmit(onSubmit)}>{editingRow ? 'Save Changes' : 'Add Record'}</Button>
+            <Button variant="outline" onClick={addModal.close} disabled={submitting}>
+              Cancel
+            </Button>
+            <Button onClick={handleSubmit(onSubmit)} disabled={submitting}>
+              {submitting ? 'Saving...' : editingRow ? 'Save Changes' : 'Add Record'}
+            </Button>
           </>
         }
       >
         <form className="grid grid-cols-1 gap-4 sm:grid-cols-2" onSubmit={handleSubmit(onSubmit)}>
-          {formFields.map((field) => (
-            <div key={field.name} className={field.fullWidth ? 'sm:col-span-2' : ''}>
-              {field.type === 'select' ? (
-                <label className="block">
-                  <span className="mb-1.5 block text-sm font-medium text-slate-600">{field.label}</span>
-                  <select className="input-base" {...register(field.name)}>
-                    {field.options.map((opt) => (
-                      <option key={opt} value={opt}>
-                        {opt}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              ) : (
-                <Input label={field.label} type={field.type || 'text'} {...register(field.name)} />
-              )}
-            </div>
-          ))}
+          {formFields.map((field) => {
+            const isDependent = field.dependsOn && field.loadOptions
+            const effectiveOptions = isDependent ? (dynamicOptions[field.name] || []) : field.options
+
+            return (
+              <div key={field.name} className={field.fullWidth ? 'sm:col-span-2' : ''}>
+                {field.type === 'select' ? (
+                  <label className="block">
+                    <span className="mb-1.5 block text-sm font-medium text-slate-600">{field.label}</span>
+                    <select className="input-base" {...register(field.name)}>
+                      {(isDependent || field.placeholder) && field.placeholder !== false && (
+                        <option value="">{typeof field.placeholder === 'string' ? field.placeholder : '-- Select --'}</option>
+                      )}
+                      {effectiveOptions.map((opt) => {
+                        const optionValue = typeof opt === 'string' ? opt : opt.value
+                        const optionLabel = typeof opt === 'string' ? opt : opt.label
+                        return (
+                          <option key={optionValue} value={optionValue}>
+                            {optionLabel}
+                          </option>
+                        )
+                      })}
+                    </select>
+                  </label>
+                ) : (
+                  <Input
+                    label={field.label}
+                    type={field.type || 'text'}
+                    {...register(
+                      field.name,
+                      field.type === 'number'
+                        ? {
+                          setValueAs: (v) => (v === '' || v === null || v === undefined ? '' : Number(v)),
+                        }
+                        : {}
+                    )}
+                  />
+                )}
+              </div>
+            )
+          })}
         </form>
       </Modal>
 
@@ -178,8 +445,8 @@ export default function ManagementPage({
           <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {Object.entries(selectedRow).map(([key, value]) => (
               <div key={key}>
-                <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">{key}</dt>
-                <dd className="mt-0.5 text-sm font-medium text-slate-700">{String(value)}</dd>
+                <dt className="text-xs font-medium tracking-wide uppercase text-slate-400">{key}</dt>
+                <dd className="mt-0.5 text-sm font-medium text-slate-700">{String(value ?? '')}</dd>
               </div>
             ))}
           </dl>
