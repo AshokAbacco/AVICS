@@ -36,15 +36,15 @@ export default function AppRoutes() {
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
       {/* Authentication Routes (Enable Later) */}
-      {/*
+      
       <Route element={<AuthLayout />}>
         <Route path="/login" element={<Login />} />
       </Route>
-      */}
+     
 
 
       {/* Temporary Login Redirect */}
-      <Route path="/login" element={<Navigate to="/dashboard" replace />} />
+      {/* <Route path="/login" element={<Navigate to="/dashboard" replace />} /> */}
 
       {/* Protected Routes */}
       <Route element={<AdminLayout />}>

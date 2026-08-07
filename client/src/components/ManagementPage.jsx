@@ -1,7 +1,7 @@
 //client\src\components\ManagementPage.jsx
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useForm } from 'react-hook-form'
-import { Download, Plus, Upload } from 'lucide-react'
+import { AlertTriangle, Download, Plus, Upload, X } from 'lucide-react'
 import PageHeader from './PageHeader.jsx'
 import StatCard from './StatCard.jsx'
 import SearchBar from './SearchBar.jsx'
@@ -43,6 +43,23 @@ import { exportToCSV } from '../utils/table.js'
  * real change, not the initial load when editing an existing row), this
  * field's current selection is cleared, since it likely no longer applies.
  * Fields that don't set `dependsOn`/`loadOptions` behave exactly as before.
+ *
+ * SECTIONS (optional, additive): a field can declare `section: 'Amounts'`
+ * to be grouped under a labeled divider in the Add/Edit modal instead of
+ * sitting in one flat grid. Fields sharing the same `section` string are
+ * grouped together, in first-appearance order. Fields with no `section`
+ * fall into a single unlabeled group. Existing formFields arrays that never
+ * set `section` render exactly as before -- one flat grid, no headers.
+ *
+ * CONDITIONAL FIELDS (optional, additive): a field can declare
+ *   { name: 'rejectionReason', showIf: (values) => values.status === 'REJECTED' }
+ * where `values` is the live (watched) state of the whole form. The field
+ * is only rendered while showIf returns true. Fields without showIf always
+ * render, exactly as before.
+ *
+ * modalSize (optional): passed straight through to the underlying Modal's
+ * `size` prop ('sm' | 'md' | 'lg' | 'xl'). Defaults to 'lg', which fits a
+ * two-column form comfortably -- pass 'xl' for forms with many fields.
  */
 export default function ManagementPage({
   title,
@@ -57,6 +74,7 @@ export default function ManagementPage({
   filterLabel = 'Status',
   stats = [],
   idPrefix = 'REC',
+  modalSize = 'lg',
   // Optional async API handlers
   onFetch,   // async () => items[]
   onCreate,  // async (data) => createdItem
@@ -94,6 +112,10 @@ export default function ManagementPage({
   // documented react-hook-form pattern for reacting to a field's value --
   // it subscribes this component to re-render whenever that field changes.
   const dependencyValues = dependentFields.map((f) => watch(f.dependsOn))
+
+  // Live snapshot of the whole form, used to evaluate each field's
+  // optional showIf(values). Cheap -- react-hook-form dedupes re-renders.
+  const liveValues = watch()
 
   useEffect(() => {
     let cancelled = false
@@ -249,6 +271,21 @@ export default function ManagementPage({
     window.alert('Import: choose a CSV file to bulk-upload records (demo action).')
   }
 
+  // Group formFields by their optional `section`, preserving first-
+  // appearance order. Fields without a section land in one unlabeled group
+  // -- if no field in the whole array sets `section`, this produces exactly
+  // one group with no header, i.e. identical to the old flat-grid behavior.
+  const fieldGroups = []
+  const groupIndexByKey = {}
+  formFields.forEach((field) => {
+    const key = field.section || '__ungrouped__'
+    if (!(key in groupIndexByKey)) {
+      groupIndexByKey[key] = fieldGroups.length
+      fieldGroups.push({ label: field.section || null, fields: [] })
+    }
+    fieldGroups[groupIndexByKey[key]].fields.push(field)
+  })
+
   return (
     <div>
       <PageHeader
@@ -294,69 +331,43 @@ export default function ManagementPage({
           <FilterBar value={filterValue} onChange={setFilterValue} options={filterOptions} label={filterLabel} />
         )}
       </div>
-      {/* delete Claim with model */}
+
+      {/* Delete confirmation */}
       {deleteModal.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="w-full max-w-[340px] sm:max-w-[380px] rounded-xl bg-white dark:bg-gray-900 shadow-xl overflow-hidden">
-
-            {/* Header */}
-            <div className="flex flex-col items-center pt-5">
-              <div className="flex items-center justify-center bg-red-100 rounded-full h-14 w-14 dark:bg-red-900/30">
-                <svg
-                  className="text-red-600 h-7 w-7"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M12 9v4m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z"
-                  />
-                </svg>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <div className="w-full max-w-[380px] overflow-hidden rounded-2xl bg-white shadow-elevated">
+            <div className="flex flex-col items-center pt-6">
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-red-50 text-danger">
+                <AlertTriangle size={26} strokeWidth={2} />
               </div>
-
-              <h2 className="mt-3 text-lg font-bold text-gray-800 dark:text-white">
-                Delete Record?
-              </h2>
+              <h2 className="mt-3 text-base font-semibold text-slate-800">Delete Record?</h2>
             </div>
 
-            {/* Body */}
-            <div className="px-5 py-3 text-center">
-              <p className="text-sm text-gray-600 dark:text-gray-300">
-                Are you sure you want to delete
-              </p>
-
-              <p className="mt-2 text-base font-semibold text-red-600 break-all">
+            <div className="px-6 py-3 text-center">
+              <p className="text-sm text-slate-500">Are you sure you want to delete</p>
+              <p className="mt-2 break-all text-base font-semibold text-danger">
                 {deleteModal.row?.claimNumber ||
                   deleteModal.row?.caseNumber ||
                   deleteModal.row?.name ||
                   deleteModal.row?.id}
               </p>
-
-              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                This action cannot be undone.
-              </p>
+              <p className="mt-2 text-xs text-slate-400">This action cannot be undone.</p>
             </div>
 
-            {/* Footer */}
-            <div className="flex gap-2 p-4 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex gap-2 border-t border-border p-4">
               <button
                 onClick={cancelDelete}
-                className="flex-1 py-2 text-sm font-medium text-gray-700 transition border border-gray-300 rounded-lg dark:border-gray-600 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
+                className="flex-1 rounded-lg border border-border py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
               >
                 Cancel
               </button>
-
               <button
                 onClick={confirmDelete}
-                className="flex-1 py-2 text-sm font-medium text-white transition bg-red-600 rounded-lg hover:bg-red-700"
+                className="flex-1 rounded-lg bg-danger py-2 text-sm font-medium text-white transition hover:bg-red-600"
               >
                 Delete
               </button>
             </div>
-
           </div>
         </div>
       )}
@@ -378,6 +389,7 @@ export default function ManagementPage({
       <Modal
         isOpen={addModal.isOpen}
         onClose={addModal.close}
+        size={modalSize}
         title={editingRow ? `Edit ${breadcrumbLabel.replace(/s$/, '')}` : `Add ${breadcrumbLabel.replace(/s$/, '')}`}
         footer={
           <>
@@ -390,45 +402,67 @@ export default function ManagementPage({
           </>
         }
       >
-        <form className="grid grid-cols-1 gap-4 sm:grid-cols-2" onSubmit={handleSubmit(onSubmit)}>
-          {formFields.map((field) => {
-            const isDependent = field.dependsOn && field.loadOptions
-            const effectiveOptions = isDependent ? (dynamicOptions[field.name] || []) : field.options
+        <form onSubmit={handleSubmit(onSubmit)}>
+          {fieldGroups.map((group, gi) => {
+            const visibleFields = group.fields.filter((f) => (f.showIf ? f.showIf(liveValues) : true))
+            if (visibleFields.length === 0) return null
 
             return (
-              <div key={field.name} className={field.fullWidth ? 'sm:col-span-2' : ''}>
-                {field.type === 'select' ? (
-                  <label className="block">
-                    <span className="mb-1.5 block text-sm font-medium text-slate-600">{field.label}</span>
-                    <select className="input-base" {...register(field.name)}>
-                      {(isDependent || field.placeholder) && field.placeholder !== false && (
-                        <option value="">{typeof field.placeholder === 'string' ? field.placeholder : '-- Select --'}</option>
-                      )}
-                      {effectiveOptions.map((opt) => {
-                        const optionValue = typeof opt === 'string' ? opt : opt.value
-                        const optionLabel = typeof opt === 'string' ? opt : opt.label
-                        return (
-                          <option key={optionValue} value={optionValue}>
-                            {optionLabel}
-                          </option>
-                        )
-                      })}
-                    </select>
-                  </label>
-                ) : (
-                  <Input
-                    label={field.label}
-                    type={field.type || 'text'}
-                    {...register(
-                      field.name,
-                      field.type === 'number'
-                        ? {
-                          setValueAs: (v) => (v === '' || v === null || v === undefined ? '' : Number(v)),
-                        }
-                        : {}
-                    )}
-                  />
+              <div key={group.label || `group-${gi}`} className={gi === 0 ? '' : 'mt-6'}>
+                {group.label && (
+                  <div className="mb-3 flex items-center gap-2">
+                    <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                    <h4 className="text-xs font-semibold uppercase tracking-wide text-primary">{group.label}</h4>
+                    <div className="h-px flex-1 bg-border" />
+                  </div>
                 )}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  {visibleFields.map((field) => {
+                    const isDependent = field.dependsOn && field.loadOptions
+                    const effectiveOptions = isDependent ? (dynamicOptions[field.name] || []) : field.options
+
+                    return (
+                      <div key={field.name} className={field.fullWidth ? 'sm:col-span-2' : ''}>
+                        {field.type === 'select' ? (
+                          <label className="block">
+                            <span className="mb-1.5 block text-sm font-medium text-slate-600">{field.label}</span>
+                            <select className="input-base" {...register(field.name)}>
+                              {(isDependent || field.placeholder) && field.placeholder !== false && (
+                                <option value="">{typeof field.placeholder === 'string' ? field.placeholder : '-- Select --'}</option>
+                              )}
+                              {effectiveOptions.map((opt) => {
+                                const optionValue = typeof opt === 'string' ? opt : opt.value
+                                const optionLabel = typeof opt === 'string' ? opt : opt.label
+                                return (
+                                  <option key={optionValue} value={optionValue}>
+                                    {optionLabel}
+                                  </option>
+                                )
+                              })}
+                            </select>
+                            {field.hint && <span className="mt-1 block text-xs text-slate-400">{field.hint}</span>}
+                          </label>
+                        ) : (
+                          <>
+                            <Input
+                              label={field.label}
+                              type={field.type || 'text'}
+                              {...register(
+                                field.name,
+                                field.type === 'number'
+                                  ? {
+                                    setValueAs: (v) => (v === '' || v === null || v === undefined ? '' : Number(v)),
+                                  }
+                                  : {}
+                              )}
+                            />
+                            {field.hint && <span className="mt-1 block text-xs text-slate-400">{field.hint}</span>}
+                          </>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
             )
           })}

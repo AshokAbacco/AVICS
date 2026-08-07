@@ -1,3 +1,5 @@
+// Accident Controller
+
 import { validateAccidentPayload } from '../validators/accident.validator.js'
 import { createCaseWithAccident, updateAccident, getAccidentByCaseId } from '../services/accident.service.js'
 

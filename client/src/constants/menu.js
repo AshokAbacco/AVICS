@@ -34,17 +34,17 @@ export const MENU_ITEMS = [
     icon: 'UserCog',
   },
 
-  {
-    label: 'Notifications',
-    path: '/notifications',
-    icon: 'Bell',
-  },
+  // {
+  //   label: 'Notifications',
+  //   path: '/notifications',
+  //   icon: 'Bell',
+  // },
 
-  {
-    label: 'Audit Logs',
-    path: '/audit-logs',
-    icon: 'History',
-  },
+  // {
+  //   label: 'Audit Logs',
+  //   path: '/audit-logs',
+  //   icon: 'History',
+  // },
 
   {
     label: 'Settings',

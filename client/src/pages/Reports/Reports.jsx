@@ -1,12 +1,90 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { motion } from 'framer-motion'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { Download, FileBarChart, FileSpreadsheet, ShieldCheck, TrendingUp, Wallet } from 'lucide-react'
-import PageHeader from '../../components/PageHeader.jsx'
-import StatCard from '../../components/StatCard.jsx'
-import Button from '../../components/Button.jsx'
+import {
+  Download, FileBarChart, ShieldCheck, TrendingUp, Wallet,
+  AlertTriangle, Loader2,
+} from 'lucide-react'
 import { formatCurrency } from '../../utils/format.js'
 import { exportToCSV } from '../../utils/table.js'
 import api from '../../services/api.js'
+
+/* ============================================================
+   DESIGN TOKENS — purple (#8433EC) + white only, shared with
+   Dashboard.jsx / CaseManagement.jsx / ClaimManagement.jsx /
+   DocumentManagement.jsx
+   ============================================================ */
+const PURPLE = {
+  50: "#F5EEFD",
+  100: "#ECE0FB",
+  200: "#DAC2F7",
+  300: "#BE96F1",
+  400: "#A166E9",
+  500: "#8433EC", // base
+  600: "#6E22C9",
+  700: "#571AA0",
+  800: "#3F1276",
+  900: "#2A0B52",
+};
+const WHITE = "#FFFFFF";
+
+const cardShadow = `8px 8px 20px ${PURPLE[200]}66, -8px -8px 20px ${WHITE}`;
+const cardShadowHover = `10px 10px 26px ${PURPLE[300]}66, -10px -10px 26px ${WHITE}`;
+const neumorphismStyle = { boxShadow: cardShadow, background: WHITE, borderRadius: 16, transition: "all 0.3s ease" };
+
+/* ============================================================
+   UI PRIMITIVES — mirrors Dashboard.jsx / CaseManagement.jsx
+   ============================================================ */
+const Card = ({ children, style = {} }) => (
+  <motion.div
+    style={{ ...neumorphismStyle, background: WHITE, ...style }}
+    whileHover={{ scale: 1.005, boxShadow: cardShadowHover }}
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.3 }}
+  >
+    {children}
+  </motion.div>
+);
+
+const NeumorphismButton = ({ onClick, children, disabled }) => (
+  <motion.button
+    style={{
+      display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
+      width: "100%", padding: "10px 18px", borderRadius: 12, border: `1px solid ${PURPLE[100]}`,
+      background: WHITE, boxShadow: `6px 6px 14px ${PURPLE[200]}55, -6px -6px 14px ${WHITE}`,
+      cursor: disabled ? "not-allowed" : "pointer", fontWeight: 600, fontSize: 13.5,
+      color: PURPLE[700], opacity: disabled ? 0.6 : 1, transition: "all 0.3s ease",
+    }}
+    whileHover={disabled ? {} : { scale: 1.02, boxShadow: cardShadowHover }}
+    whileTap={disabled ? {} : { scale: 0.97 }}
+    onClick={onClick}
+    disabled={disabled}
+  >
+    {children}
+  </motion.button>
+);
+
+/* ============================================================
+   FRAMER MOTION VARIANTS
+   ============================================================ */
+const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.07, delayChildren: 0.05 } } };
+const itemVariants = { hidden: { opacity: 0, y: 16 }, visible: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } } };
+
+/* ============================================================
+   STAT TILE
+   ============================================================ */
+const StatTile = ({ label, value, icon: Icon }) => (
+  <Card style={{ padding: 20 }}>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <span style={{ fontSize: 13, fontWeight: 600, color: PURPLE[900] }}>{label}</span>
+      <div style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: PURPLE[50], display: "flex", alignItems: "center", justifyContent: "center", color: PURPLE[500], border: `1px solid ${PURPLE[100]}` }}>
+        <Icon size={20} />
+      </div>
+    </div>
+    <div style={{ marginTop: 12, fontSize: 26, fontWeight: 800, color: PURPLE[900], letterSpacing: "-0.03em" }}>{value}</div>
+  </Card>
+);
 
 const REPORT_TYPES = [
   { id: 'cases', label: 'Case Summary Report', icon: FileBarChart, description: 'All cases with status and priority.' },
@@ -184,97 +262,118 @@ export default function Reports() {
     return months.map((m) => buckets[m.key])
   }, [claims])
 
+  const stats = [
+    { label: 'Total Cases', value: loading ? '…' : cases.length, icon: FileBarChart },
+    { label: 'Total Claims', value: loading ? '…' : claims.length, icon: Wallet },
+    { label: 'Total Compensation Paid', value: loading ? '…' : formatCurrency(totalClaimCompensation), icon: Wallet },
+    { label: 'Total Insurance Coverage', value: loading ? '…' : formatCurrency(totalCoverage), icon: ShieldCheck },
+  ]
+
   return (
-    <div>
-      <PageHeader
-        title="Reports"
-        subtitle="Generate and export analytical reports across all modules."
-        breadcrumbItems={[{ label: 'Reports' }]}
-      />
+    <div style={{ background: "#faf9fe", minHeight: "100vh", fontFamily: "'Inter', system-ui, -apple-system, sans-serif", paddingBottom: 20 }}>
+      <style>{`
+        * { box-sizing: border-box; }
+        .spin-icon { animation: spin 1s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+      `}</style>
 
-      {error && (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-        </div>
-      )}
+      <main style={{ maxWidth: 1600, margin: "0 auto", padding: "24px 28px" }}>
+        <motion.div variants={containerVariants} initial="hidden" animate="visible">
 
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label="Total Cases"
-          value={loading ? '...' : cases.length}
-          icon={FileBarChart}
-          tone="primary"
-        />
-        <StatCard
-          label="Total Claims"
-          value={loading ? '...' : claims.length}
-          icon={Wallet}
-          tone="accent"
-        />
-        <StatCard
-          label="Total Compensation Paid"
-          value={loading ? '...' : formatCurrency(totalClaimCompensation)}
-          icon={Wallet}
-          tone="success"
-        />
-        <StatCard
-          label="Total Insurance Coverage"
-          value={loading ? '...' : formatCurrency(totalCoverage)}
-          icon={ShieldCheck}
-          tone="warning"
-        />
-      </div>
+          {/* Page header — plain, no gradient banner */}
+          <motion.div variants={itemVariants} style={{ marginBottom: 24 }}>
+            <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-0.02em", margin: 0, color: PURPLE[900] }}>
+              <span style={{ color: PURPLE[500] }}>Reports</span>
+            </h1>
+            <p style={{ fontSize: 13.5, color: PURPLE[600], marginTop: 4, maxWidth: 620, lineHeight: 1.5 }}>
+              Generate and export analytical reports across all modules.
+            </p>
+          </motion.div>
 
-      <div className="mb-6 grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <div className="card p-5">
-          <h3 className="mb-4 text-sm font-semibold text-slate-700">Case Filing vs Settlement</h3>
-          <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={monthlyCases}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-              <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#64748B' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 12, fill: '#64748B' }} axisLine={false} tickLine={false} allowDecimals={false} />
-              <Tooltip />
-              <Bar dataKey="cases" name="Filed" fill="#0A4DB3" radius={[6, 6, 0, 0]} />
-              <Bar dataKey="settled" name="Settled" fill="#22C55E" radius={[6, 6, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-        <div className="card p-5">
-          <h3 className="mb-4 text-sm font-semibold text-slate-700">Compensation Trend</h3>
-          <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={compensationTrend}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-              <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#64748B' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 12, fill: '#64748B' }} axisLine={false} tickLine={false} />
-              <Tooltip formatter={(value) => formatCurrency(value)} />
-              <Bar dataKey="amount" name="Amount" fill="#60A5FA" radius={[6, 6, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-        {REPORT_TYPES.map((report) => (
-          <div key={report.id} className="card flex flex-col gap-4 p-5">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-50 text-primary">
-              <report.icon size={20} />
-            </div>
-            <div>
-              <h4 className="text-sm font-semibold text-slate-800">{report.label}</h4>
-              <p className="mt-1 text-xs text-slate-500">{report.description}</p>
-            </div>
-            <Button
-              variant="outline"
-              icon={Download}
-              onClick={() => handleGenerate(report.id)}
-              disabled={generating === report.id || loading}
-              className="mt-auto"
+          {error && (
+            <motion.div
+              variants={itemVariants}
+              style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderRadius: 14, marginBottom: 20, background: PURPLE[900], color: WHITE, fontSize: 13.5, fontWeight: 600 }}
             >
-              {generating === report.id ? 'Generating...' : 'Export CSV'}
-            </Button>
+              <AlertTriangle size={16} /> {error}
+            </motion.div>
+          )}
+
+          {/* Stat tiles */}
+          <motion.div variants={containerVariants} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, marginBottom: 20 }}>
+            {stats.map((s) => <StatTile key={s.label} {...s} />)}
+          </motion.div>
+
+          {/* Charts */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 20, marginBottom: 20 }}>
+            <Card style={{ padding: 24 }}>
+              <h3 style={{ margin: "0 0 20px", fontSize: 16, fontWeight: 700, color: PURPLE[900] }}>Case Filing vs Settlement</h3>
+              <div style={{ width: "100%", height: 260, borderRadius: 16, overflow: "hidden" }}>
+                <ResponsiveContainer>
+                  <BarChart data={monthlyCases}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={PURPLE[100]} />
+                    <XAxis dataKey="month" tick={{ fontSize: 12, fill: PURPLE[600] }} axisLine={false} tickLine={false} dy={10} />
+                    <YAxis tick={{ fontSize: 12, fill: PURPLE[600] }} axisLine={false} tickLine={false} width={35} allowDecimals={false} />
+                    <Tooltip
+                      contentStyle={{ borderRadius: 12, border: `1px solid ${PURPLE[100]}`, boxShadow: `0 10px 25px -5px ${PURPLE[300]}40`, fontSize: 12.5 }}
+                    />
+                    <Bar dataKey="cases" name="Filed" fill={PURPLE[600]} radius={[6, 6, 0, 0]} />
+                    <Bar dataKey="settled" name="Settled" fill={PURPLE[300]} radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </Card>
+
+            <Card style={{ padding: 24 }}>
+              <h3 style={{ margin: "0 0 20px", fontSize: 16, fontWeight: 700, color: PURPLE[900] }}>Compensation Trend</h3>
+              <div style={{ width: "100%", height: 260, borderRadius: 16, overflow: "hidden" }}>
+                <ResponsiveContainer>
+                  <BarChart data={compensationTrend}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={PURPLE[100]} />
+                    <XAxis dataKey="month" tick={{ fontSize: 12, fill: PURPLE[600] }} axisLine={false} tickLine={false} dy={10} />
+                    <YAxis
+                      tick={{ fontSize: 11, fill: PURPLE[600] }}
+                      axisLine={false}
+                      tickLine={false}
+                      width={45}
+                      tickFormatter={(v) => (v >= 100000 ? `₹${(v / 100000).toFixed(1)}L` : `₹${v}`)}
+                    />
+                    <Tooltip
+                      formatter={(value) => formatCurrency(value)}
+                      contentStyle={{ borderRadius: 12, border: `1px solid ${PURPLE[100]}`, boxShadow: `0 10px 25px -5px ${PURPLE[300]}40`, fontSize: 12.5 }}
+                    />
+                    <Bar dataKey="amount" name="Amount" fill={PURPLE[500]} radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </Card>
           </div>
-        ))}
-      </div>
+
+          {/* Report type cards */}
+          <motion.div
+            variants={containerVariants}
+            style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}
+          >
+            {REPORT_TYPES.map((report) => (
+              <Card key={report.id} style={{ padding: 20, display: "flex", flexDirection: "column", gap: 14 }}>
+                <div style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: PURPLE[50], display: "flex", alignItems: "center", justifyContent: "center", color: PURPLE[500], border: `1px solid ${PURPLE[100]}` }}>
+                  <report.icon size={20} />
+                </div>
+                <div>
+                  <h4 style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: PURPLE[900] }}>{report.label}</h4>
+                  <p style={{ margin: "4px 0 0", fontSize: 12, color: PURPLE[600], lineHeight: 1.5 }}>{report.description}</p>
+                </div>
+                <div style={{ marginTop: "auto" }}>
+                  <NeumorphismButton onClick={() => handleGenerate(report.id)} disabled={generating === report.id || loading}>
+                    {generating === report.id ? <Loader2 size={15} className="spin-icon" /> : <Download size={15} />}
+                    {generating === report.id ? 'Generating...' : 'Export CSV'}
+                  </NeumorphismButton>
+                </div>
+              </Card>
+            ))}
+          </motion.div>
+        </motion.div>
+      </main>
     </div>
   )
 }

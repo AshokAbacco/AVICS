@@ -1,3 +1,4 @@
+// src/components/CaseStatusBadge/CaseStatusBadge.jsx
 import React from 'react'
 import { getCaseStatusMeta } from '../../constants/caseStatus.js'
 

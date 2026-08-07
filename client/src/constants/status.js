@@ -7,14 +7,14 @@ export const STATUS_STYLES = {
   'Under Review': 'bg-amber-50 text-amber-700',
   Approved: 'bg-emerald-50 text-emerald-700',
   APPROVED: 'bg-emerald-50 text-emerald-700',
-  PARTIALLY_APPROVED: 'bg-blue-50 text-blue-700',
-  PartiallyApproved: 'bg-blue-50 text-blue-700',
+  PARTIALLY_APPROVED: 'bg-primary-50 text-primary-700',
+  PartiallyApproved: 'bg-primary-50 text-primary-700',
   Rejected: 'bg-red-50 text-red-700',
   REJECTED: 'bg-red-50 text-red-700',
   Settled: 'bg-emerald-50 text-emerald-700',
   Active: 'bg-emerald-50 text-emerald-700',
   Inactive: 'bg-slate-100 text-slate-600',
-  Scheduled: 'bg-blue-50 text-blue-700',
+  Scheduled: 'bg-primary-50 text-primary-700',
   Disposed: 'bg-slate-100 text-slate-600',
   Verified: 'bg-emerald-50 text-emerald-700',
   Unverified: 'bg-amber-50 text-amber-700',
@@ -26,7 +26,7 @@ export const STATUS_STYLES = {
   PartiallyPaid: 'bg-amber-50 text-amber-700',
   PARTIALLY_PAID: 'bg-amber-50 text-amber-700',
   Read: 'bg-slate-100 text-slate-600',
-  Unread: 'bg-blue-50 text-blue-700',
+  Unread: 'bg-primary-50 text-primary-700',
 }
 
 export const getStatusStyle = (status) => STATUS_STYLES[status] || 'bg-slate-100 text-slate-600'

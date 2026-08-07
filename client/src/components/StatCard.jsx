@@ -6,7 +6,7 @@ const TONE_STYLES = {
   success: 'bg-emerald-50 text-emerald-700',
   warning: 'bg-amber-50 text-amber-700',
   danger: 'bg-red-50 text-red-700',
-  accent: 'bg-sky-50 text-sky-700',
+  accent: 'bg-primary-50 text-primary-600',
 }
 
 export default function StatCard({ label, value, icon: Icon, tone = 'primary', trend, delay = 0 }) {

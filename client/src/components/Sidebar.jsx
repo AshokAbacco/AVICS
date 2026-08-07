@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import * as Icons from 'lucide-react'
 import { MENU_ITEMS } from '../constants/menu.js'
@@ -10,123 +10,167 @@ export default function Sidebar() {
   const { sidebarOpen, toggleSidebar } = useAppContext()
   const { logout } = useAuth()
 
+  const [isHovered, setIsHovered] = useState(false)
+  const [hoverTimeout, setHoverTimeout] = useState(null)
+
+  const isDesktop = window.innerWidth >= 1024
+  const isExpanded = isDesktop ? isHovered : sidebarOpen
+
+  // Smooth hover (no flicker)
+  const handleMouseEnter = () => {
+    clearTimeout(hoverTimeout)
+    setIsHovered(true)
+  }
+
+  const handleMouseLeave = () => {
+    const timeout = setTimeout(() => setIsHovered(false), 120)
+    setHoverTimeout(timeout)
+  }
+
   return (
     <>
-      {/* Modern Mobile Overlay: Subtle blur and dark tint */}
+      {/* Mobile Overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-30 bg-slate-950/30 backdrop-blur-[2px] transition-opacity lg:hidden"
           onClick={toggleSidebar}
+          className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm lg:hidden"
         />
       )}
 
-      {/* Sidebar Container: Glassmorphic, Floating, Smooth transitions */}
+      {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-72 flex-col overflow-hidden border-r border-slate-200/80 bg-white/80 backdrop-blur-xl transition-all duration-300 ease-in-out
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-        lg:translate-x-0 ${sidebarOpen ? 'lg:w-72' : 'lg:w-20'}`}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        className={`
+          fixed inset-y-0 left-0 z-40 flex flex-col overflow-hidden
+          border-r border-[#8433ec]/20 bg-white/90 backdrop-blur-xl
+          transition-all duration-300 ease-in-out
+
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} 
+          lg:translate-x-0
+
+          ${isExpanded ? 'lg:w-72' : 'lg:w-20'}
+          w-72
+        `}
       >
-        {/* Logo Header */}
-        <div className="flex h-[68px] shrink-0 items-center px-5">
+        {/* Logo */}
+        <div className="flex h-[68px] items-center px-5">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white shadow-md shadow-slate-900/20 transition-transform group-hover:scale-105">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#8433ec] text-white shadow-md shadow-[#8433ec]/30 transition-transform group-hover:scale-110">
               <Icons.ShieldCheck size={18} strokeWidth={2.5} />
             </div>
 
-            <div className={`overflow-hidden transition-all duration-300 ${!sidebarOpen ? 'lg:w-0 lg:opacity-0' : 'w-auto opacity-100'}`}>
-              <h1 className="whitespace-nowrap text-base font-semibold tracking-tight text-slate-900">
+            <div className={`transition-all duration-300 ${!isExpanded ? 'lg:hidden' : ''}`}>
+              <h1 className="text-base font-semibold text-slate-900">
                 {APP_NAME}
               </h1>
-              <p className="whitespace-nowrap text-xs font-medium text-slate-400">
-                Claims Management
-              </p>
+              <p className="text-xs text-[#8433ec]">Claims Management</p>
             </div>
           </div>
         </div>
 
-        {/* Navigation */}
-        <div className="flex h-full flex-col">
-          <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-            {MENU_ITEMS.map((item) => {
-              const Icon = Icons[item.icon] || Icons.Circle
+        {/* Menu */}
+        <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto">
+          {MENU_ITEMS.map((item) => {
+            const Icon = Icons[item.icon] || Icons.Circle
 
-              return (
-                <NavLink
-                  key={item.path}
-                  to={item.path}
-                  title={item.label}
-                  onClick={() => {
-                    if (window.innerWidth < 1024 && sidebarOpen) {
-                      toggleSidebar()
-                    }
-                  }}
-                  className={({ isActive }) =>
-                    `group flex items-center gap-3.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200
-                    ${!sidebarOpen ? 'lg:justify-center' : ''}
-                    ${
-                      isActive
-                        ? 'bg-slate-100 text-slate-900'
-                        : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
-                    }`
+            return (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                title={!isExpanded ? item.label : ''}
+                onClick={() => {
+                  if (window.innerWidth < 1024 && sidebarOpen) {
+                    toggleSidebar()
                   }
-                >
-                  {({ isActive }) => (
-                    <>
-                      <Icon
-                        size={18}
-                        strokeWidth={2}
-                        className={`shrink-0 transition-colors duration-200 ${isActive ? 'text-slate-900' : 'text-slate-400 group-hover:text-slate-600'}`}
-                      />
+                }}
+                className={({ isActive }) =>
+                  `
+                  relative group flex items-center gap-3.5 rounded-xl px-3 py-2.5 text-sm font-medium
+                  transition-all duration-200
+                  ${!isExpanded ? 'lg:justify-center' : ''}
+                  
+                  ${
+                    isActive
+                      ? 'bg-[#8433ec] text-white shadow-lg shadow-[#8433ec]/40'
+                      : 'text-slate-500 hover:bg-[#8433ec]/10 hover:text-[#8433ec]'
+                  }
+                `
+                }
+              >
+                {({ isActive }) => (
+                  <>
+                    {/* Glow Effect */}
+                    {isActive && (
+                      <span className="absolute inset-0 rounded-xl bg-[#8433ec] opacity-20 blur-md"></span>
+                    )}
 
-                      <span className={`whitespace-nowrap transition-all duration-300 ${!sidebarOpen ? 'lg:hidden lg:opacity-0' : 'opacity-100'}`}>
+                    {/* Icon */}
+                    <Icon
+                      size={18}
+                      strokeWidth={2}
+                      className={`
+                        relative z-10 shrink-0 transition-all duration-200
+                        group-hover:scale-110
+                        ${
+                          isActive
+                            ? 'text-white'
+                            : 'text-slate-400 group-hover:text-[#8433ec]'
+                        }
+                      `}
+                    />
+
+                    {/* Label */}
+                    <span
+                      className={`
+                        relative z-10 whitespace-nowrap transition-all duration-300
+                        ${isExpanded ? 'opacity-100' : 'opacity-0 lg:hidden'}
+                      `}
+                    >
+                      {item.label}
+                    </span>
+
+                    {/* Tooltip (collapsed) */}
+                    {!isExpanded && (
+                      <span className="absolute left-16 z-50 hidden whitespace-nowrap rounded-md bg-[#8433ec] px-2 py-1 text-xs text-white shadow-lg group-hover:block">
                         {item.label}
                       </span>
+                    )}
 
-                      {/* Modern Active Indicator Dot */}
-                      {isActive && (
-                        <span className={`ml-auto h-1.5 w-1.5 rounded-full bg-slate-900 transition-all ${!sidebarOpen ? 'lg:hidden' : ''}`} />
-                      )}
-                    </>
-                  )}
-                </NavLink>
-              )
-            })}
-          </nav>
+                    {/* Active Dot */}
+                    {isActive && isExpanded && (
+                      <span className="ml-auto h-1.5 w-1.5 rounded-full bg-white"></span>
+                    )}
+                  </>
+                )}
+              </NavLink>
+            )
+          })}
+        </nav>
 
-          {/* Modern User Profile Footer */}
-          <div className="shrink-0 border-t border-slate-200/80 p-3">
-            <div className={`group flex items-center gap-3 rounded-xl p-2 transition-colors hover:bg-slate-50 ${!sidebarOpen ? 'lg:justify-center' : ''}`}>
-              {/* Avatar with Status Ring */}
-              <div className="relative shrink-0">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-slate-200 to-slate-100 text-xs font-semibold text-slate-700 ring-1 ring-inset ring-slate-200">
-                  JD
-                </div>
-                <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-500 ring-2 ring-white"></span>
+        {/* Footer */}
+        <div className="border-t border-[#8433ec]/20 p-3">
+          <div className={`flex items-center gap-3 ${!isExpanded ? 'lg:justify-center' : ''}`}>
+            <div className="relative">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#8433ec] text-white text-xs font-semibold">
+                JD
               </div>
-
-              {/* User Info */}
-              <div className={`flex-1 overflow-hidden transition-all duration-300 ${!sidebarOpen ? 'lg:hidden lg:w-0 lg:opacity-0' : 'opacity-100'}`}>
-                <p className="truncate text-sm font-semibold text-slate-800">John Doe</p>
-                <p className="truncate text-xs text-slate-400">Administrator</p>
-              </div>
-
-              {/* Expanded Logout */}
-              <button
-                onClick={logout}
-                className={`flex shrink-0 items-center justify-center rounded-lg p-2 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600 ${!sidebarOpen ? 'lg:hidden' : ''}`}
-                title="Logout"
-              >
-                <Icons.LogOut size={18} strokeWidth={2} />
-              </button>
+              <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-green-500 ring-2 ring-white"></span>
             </div>
 
-            {/* Collapsed Logout */}
+            {isExpanded && (
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-slate-800">John Doe</p>
+                <p className="text-xs text-[#8433ec]">Administrator</p>
+              </div>
+            )}
+
+            {/* Logout */}
             <button
               onClick={logout}
-              className={`mt-1 hidden w-full items-center justify-center rounded-xl p-2.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600 ${!sidebarOpen ? 'lg:flex' : 'lg:hidden'}`}
-              title="Logout"
+              className="p-2 rounded-lg text-slate-400 hover:bg-[#8433ec] hover:text-white transition"
             >
-              <Icons.LogOut size={18} strokeWidth={2} />
+              <Icons.LogOut size={18} />
             </button>
           </div>
         </div>

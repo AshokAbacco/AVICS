@@ -1,7 +1,17 @@
+// Accident Service
+
 import prisma from '../../../config/prismaClient.js'
 import { generateCaseNumber } from '../utils/caseNumber.util.js'
 import { recordCaseActivity } from '../utils/timeline.util.js'
 import { createChecklistForCase } from './document.service.js'
+
+// Enum columns (AccidentType, WeatherCondition) reject '' — Prisma only
+// accepts a real enum member or null/undefined. The wizard's Select
+// components always send the field, just as '' when left unchosen, so we
+// normalize '' -> null here rather than relying on callers to do it.
+function sanitizeEnumValue(value) {
+  return value === '' ? null : value
+}
 
 // Step 1 of the wizard. This is the ONLY place a Case row gets created.
 // caseType/caseCategory aren't collected by the client's Step 1 fields, so
@@ -39,8 +49,8 @@ export async function createCaseWithAccident({ userId, payload }) {
         taluk: taluk || null,
         policeStation,
         location: location || null,
-        accidentType: accidentType || null,
-        weatherCondition: weatherCondition || null,
+        accidentType: sanitizeEnumValue(accidentType),
+        weatherCondition: sanitizeEnumValue(weatherCondition),
         description: description || null,
       },
     })
@@ -80,8 +90,8 @@ export async function updateAccident({ caseId, payload, userId }) {
         ...(taluk !== undefined && { taluk }),
         ...(policeStation !== undefined && { policeStation }),
         ...(location !== undefined && { location }),
-        ...(accidentType !== undefined && { accidentType }),
-        ...(weatherCondition !== undefined && { weatherCondition }),
+        ...(accidentType !== undefined && { accidentType: sanitizeEnumValue(accidentType) }),
+        ...(weatherCondition !== undefined && { weatherCondition: sanitizeEnumValue(weatherCondition) }),
         ...(description !== undefined && { description }),
       },
     })

@@ -1,3 +1,5 @@
+// tailwind.config.js
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: [
@@ -8,18 +10,18 @@ export default {
     extend: {
       colors: {
         primary: {
-          DEFAULT: '#0A4DB3',
-          50: '#EAF1FB',
-          100: '#D4E3F7',
-          500: '#0A4DB3',
-          600: '#093F92',
-          700: '#073271',
+          DEFAULT: '#8433EC',
+          50: '#F3EAFE',
+          100: '#E5D3FC',
+          500: '#8433EC',
+          600: '#6A22C4',
+          700: '#5A1BA8',
         },
         secondary: {
-          DEFAULT: '#2563EB',
+          DEFAULT: '#6A22C4',
         },
         accent: {
-          DEFAULT: '#60A5FA',
+          DEFAULT: '#B48CF0',
         },
         success: {
           DEFAULT: '#22C55E',
@@ -33,18 +35,18 @@ export default {
           DEFAULT: '#EF4444',
           50: '#FDECEC',
         },
-        surface: '#F8FAFC',
+        surface: '#FAF8FE',
         card: '#FFFFFF',
-        border: '#E5E7EB',
+        border: '#ECE3FA',
       },
       borderRadius: {
         xl: '16px',
         '2xl': '20px',
       },
       boxShadow: {
-        card: '0 1px 2px 0 rgba(15, 23, 42, 0.04), 0 4px 12px -2px rgba(15, 23, 42, 0.06)',
-        soft: '0 1px 3px 0 rgba(15, 23, 42, 0.06)',
-        elevated: '0 8px 24px -4px rgba(15, 23, 42, 0.12)',
+        card: '0 1px 2px 0 rgba(132, 51, 236, 0.05), 0 4px 12px -2px rgba(132, 51, 236, 0.08)',
+        soft: '0 1px 3px 0 rgba(132, 51, 236, 0.06)',
+        elevated: '0 8px 24px -4px rgba(132, 51, 236, 0.16)',
       },
       fontFamily: {
         sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
